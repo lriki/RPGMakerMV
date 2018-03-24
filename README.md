@@ -1,0 +1,2 @@
+# RPGMakerMV
+RPGツクールMV用のプラグインです。
