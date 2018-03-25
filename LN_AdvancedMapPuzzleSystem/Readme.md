@@ -13,7 +13,7 @@
 
 そちらで実装されていた全ての機能の達成を以って、バージョン 1.0.0 とする予定です。
 
-未実装の機能は [![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE) でマークされています。
+未実装の機能は ![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat) でマークされています。
 
 
 目次
@@ -150,9 +150,12 @@
 
 ### マップオブジェクトの移動を確定する
 
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
+
+
 ### 謎解きクリアによる位置の永続化
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 ## マップオブジェクト - 箱
@@ -205,99 +208,99 @@
 
 ### 押して移動できる箱オブジェクト
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 ### 箱オブジェクトの落下
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 ### 箱オブジェクトの積み重ね
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 ### プレイヤーの乗降によるイベントの起動
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 ## マップオブジェクト - スイッチ
 
 ### パラメータ
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 ### キャラクターの乗降によるイベントの起動
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 ## マップオブジェクト - 丸太
 
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 ### パラメータ
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 ## マップオブジェクト - 滑り台
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 ### パラメータ
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 ### 丸太タイプマップオブジェクトの移動
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 ### 溝への落下
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 ### 上に乗れる丸太
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 ## マップオブジェクト - ホール
 
 ホールタイルと同様、1マスまでならジャンプで飛び越えられるオブジェクトです。
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 
 
 ## マップスキル
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 ### 対応するイベントを起動するスキル
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 ### 箱タイプのマップオブジェクトを移動させるスキル
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 ### 見えないイベントを可視化するスキル
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 ## タッチ操作による自動移動について
 
-[![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)](LICENSE)
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
 ## ライセンス情報
