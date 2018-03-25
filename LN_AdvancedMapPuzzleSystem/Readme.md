@@ -48,11 +48,11 @@
     2. [キャラクターの乗降によるイベントの起動](#キャラクターの乗降によるイベントの起動)
 7. [マップオブジェクト - 丸太](#マップオブジェクト---丸太)
     1. [パラメータ](#パラメータ-2)
-8. [マップオブジェクト - 滑り台](#マップオブジェクト---滑り台)
-    1. [パラメータ](#パラメータ-3)
     2. [丸太タイプマップオブジェクトの移動](#丸太タイプマップオブジェクトの移動)
     3. [溝への落下](#溝への落下)
     4. [上に乗れる丸太](#上に乗れる丸太)
+8. [マップオブジェクト - 滑り台](#マップオブジェクト---滑り台)
+    1. [パラメータ](#パラメータ-3)
 9. [マップオブジェクト - ホール](#マップオブジェクト---ホール)
 10. [マップスキル](#マップスキル-1)
     1. [対応するイベントを起動するスキル](#対応するイベントを起動するスキル)
@@ -247,15 +247,6 @@
 ![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
 
 
-## マップオブジェクト - 滑り台
-
-![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
-
-### パラメータ
-
-![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
-
-
 ### 丸太タイプマップオブジェクトの移動
 
 ![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
@@ -269,6 +260,17 @@
 ### 上に乗れる丸太
 
 ![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
+
+
+## マップオブジェクト - 滑り台
+
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
+
+### パラメータ
+
+![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat)
+
+
 
 ## マップオブジェクト - ホール
 
