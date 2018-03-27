@@ -370,7 +370,7 @@
         this._ridingScreenZPriorityFlag = false;
         this._ridingScreenZPriorityFlag = false;
         this._waitAfterJump = 0;
-        this._nowGetOnOrOff = false;    // オブジェクトへの乗降のための移動中
+        this._nowGetOnOrOff = 0;    // オブジェクトへの乗降のための移動中 (1:乗る 2:降りる)
         this._getonFrameCount = 0;
         this._getonFrameMax = 0;
         this._getonStartX = 0;
@@ -395,7 +395,6 @@
             // 何かのオブジェクトに乗っている。
             // オリジナルの処理を含め、移動処理は行わない。
 
-            console.log("moveStraight");
             if (this.tryMoveObjectToGround(d)) {
             }
             else if (this.tryMoveObjectToObject(d)) {
@@ -404,7 +403,7 @@
                 this.setMovementSuccess(true);
                 this.jumpToDir(d, 2, false);
                 this.getOffFromObject();
-                this._nowGetOnOrOff = true;
+                this._nowGetOnOrOff = 2;
             }
             else {
                 var obj = MovingHelper.checkMoveOrJumpObjectToObject(this._x, this._y, d, 2);
@@ -414,7 +413,7 @@
                     this.getOffFromObject();
                     this.rideToObject(obj);
                     this.startJumpToObject();
-                    this._nowGetOnOrOff = true;
+                    this._nowGetOnOrOff = 1;
                 }
             }
             
@@ -470,10 +469,10 @@
         if (obj != null) {
             this.setMovementSuccess(true);
             // 乗る
+            this.startMoveToObjectOrGround();
             this.moveToDir(d, true);
             this.rideToObject(obj);
-            this.startMoveToObject();
-            this._nowGetOnOrOff = true;
+            this._nowGetOnOrOff = 1;
             return true;
         }
         return false;
@@ -483,9 +482,10 @@
         if (MovingHelper.checkMoveOrJumpObjectToGround(this, this._x, this._y, d, 1)) {
             this.setMovementSuccess(true);
             // 降りる
+            this.startMoveToObjectOrGround();
             this.moveToDir(d, false);
             this.getOffFromObject();
-            this._nowGetOnOrOff = true;
+            this._nowGetOnOrOff = 2;
             return true;
         }
         return false;
@@ -495,11 +495,11 @@
         var obj = MovingHelper.checkMoveOrJumpObjectToObject(this._x, this._y, d, 1);
         if (obj != null) {
             this.setMovementSuccess(true);
+            this.startMoveToObjectOrGround();
             this.moveToDir(d, false);
             this.getOffFromObject();
             this.rideToObject(obj);
-            this.startMoveToObject();
-            this._nowGetOnOrOff = true;
+            this._nowGetOnOrOff = 1;
             return true;
         }
         return false;
@@ -513,7 +513,7 @@
             this.jumpToDir(d, 2, true);
             this.rideToObject(obj);
             this.startJumpToObject();
-            this._nowGetOnOrOff = true;
+            this._nowGetOnOrOff = 1;
             return true;
         }
         return false;
@@ -736,7 +736,7 @@
 
     var _Game_CharacterBase_isMoving = Game_CharacterBase.prototype.isMoving;
     Game_CharacterBase.prototype.isMoving = function() {
-        if (this.ridding() && !this._nowGetOnOrOff) {
+        if (this.ridding() && this._nowGetOnOrOff == 0) {
             // オブジェクトの上で静止している場合は停止状態とする。
             // ridding 時は下のオブジェクトと座標を同期するようになるため、
             // オリジナルの isMoving だは常に移動状態になってしまう。
@@ -756,25 +756,37 @@
             this._ridingScreenZPriorityFlag = false;
         }
 
-        this._nowGetOnOrOff = false;
+        this._nowGetOnOrOff = 0;
     };
 
     var _Game_CharacterBase_updateMove = Game_CharacterBase.prototype.updateMove;
     Game_CharacterBase.prototype.updateMove = function() {
         _Game_CharacterBase_updateMove.apply(this, arguments);
 
-        if (this.ridding() && this._nowGetOnOrOff && this.isMoving()) {
-            // オブジェクトへ乗ろうとしているときは補完を実施して自然に移動しているように見せる
-
+        if (this._nowGetOnOrOff != 0 && this.isMoving()) {
             this._getonFrameCount++;
+            var tx = 0;
+            var ty = 0;
 
-            var obj = this.riddingObject();
-            var tx = obj._realX;
-            var ty = obj._realY - (obj.objectHeight());
+            if (this._nowGetOnOrOff == 1) {
+                // オブジェクトへ乗ろうとしているときは補完を実施して自然に移動しているように見せる
+                var obj = this.riddingObject();
+                tx = obj._realX;
+                ty = obj._realY - (obj.objectHeight());
+            }
+            else if (this._nowGetOnOrOff == 2) {
+                tx = this._x;
+                ty = this._y;
+            }
 
             var t = Math.min(this._getonFrameCount / this._getonFrameMax, 1.0);
             this._realX = MovingHelper.linear(t, this._getonStartX, tx - this._getonStartX, 1.0);
             this._realY = MovingHelper.linear(t, this._getonStartY, ty - this._getonStartY, 1.0);
+
+            if (this._getonFrameCount >= this._getonFrameMax) {
+                // 移動完了
+                this._nowGetOnOrOff = 0;
+            }
         }
     };
     
@@ -784,22 +796,24 @@
 
         _Game_CharacterBase_updateJump.apply(this, arguments);
 
-        if (this.ridding() && this._nowGetOnOrOff && oldJumping) {
-            // オブジェクトへ乗ろうとしているときは補完を実施して自然に移動しているように見せる
-            
-            var obj = this.riddingObject();
-            var tx = obj._realX;
-            var ty = obj._realY - (obj.objectHeight());
-
-            var countMax = this._jumpPeak * 2;
-            var t = Math.min((countMax - this._jumpCount + 1) / countMax, 1.0);
-
-            this._realX = MovingHelper.linear(t, this._getonStartX, tx - this._getonStartX, 1.0);
-            this._realY = MovingHelper.linear(t, this._getonStartY, ty - this._getonStartY, 1.0);
-
-            // ここで論理座標も同期しておかないと、ジャンプ完了時の一瞬だけ画面が揺れる
-            this._x = obj._x;
-            this._y = obj._y - obj.objectHeight();
+        if (this.ridding() && oldJumping) {
+            if (this._nowGetOnOrOff == 1) {
+                // オブジェクトへ乗ろうとしているときは補完を実施して自然に移動しているように見せる
+                
+                var obj = this.riddingObject();
+                var tx = obj._realX;
+                var ty = obj._realY - (obj.objectHeight());
+    
+                var countMax = this._jumpPeak * 2;
+                var t = Math.min((countMax - this._jumpCount + 1) / countMax, 1.0);
+    
+                this._realX = MovingHelper.linear(t, this._getonStartX, tx - this._getonStartX, 1.0);
+                this._realY = MovingHelper.linear(t, this._getonStartY, ty - this._getonStartY, 1.0);
+    
+                // ここで論理座標も同期しておかないと、ジャンプ完了時の一瞬だけ画面が揺れる
+                this._x = obj._x;
+                this._y = obj._y - obj.objectHeight();
+            }
         }
     }
 
@@ -807,17 +821,16 @@
     Game_CharacterBase.prototype.update = function() {
         _Game_CharacterBase_update.apply(this, arguments);
 
-        if (this.ridding() && !this._nowGetOnOrOff) {
+        if (this.ridding() && this._nowGetOnOrOff == 0) {
             var obj = this.riddingObject();
             this._x = obj._x;
             this._y = obj._y - obj.objectHeight();
             this._realX = obj._realX;
             this._realY = obj._realY - (obj.objectHeight());
         }
-        //console.log(this.gsObjectId(), this._ridingCharacterId);
     }
 
-    Game_CharacterBase.prototype.startMoveToObject = function() {
+    Game_CharacterBase.prototype.startMoveToObjectOrGround = function() {
         // 移動しているオブジェクトへなめらかに移動する対策
         
         this._getonFrameMax = (1.0 / this.distancePerFrame());
