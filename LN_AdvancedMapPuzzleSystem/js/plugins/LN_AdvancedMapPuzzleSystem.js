@@ -1056,5 +1056,37 @@
             }
         }
     };
-    
+
+    //-----------------------------------------------------------------------------
+    // Sprite_Character
+
+
+    var _Sprite_Character_initMembers = Sprite_Character.prototype.initMembers;
+    Sprite_Character.prototype.initMembers = function() {
+        _Sprite_Character_initMembers.apply(this, arguments);
+        this._manipulatingFlashDuration = 0;
+        this._manipulatingFlashColor = [0, 0, 0, 0];
+        this._manipulatingFlashDuration = 0;
+    };
+
+
+    var _Sprite_Character_updateCharacterFrame = Sprite_Character.prototype.updateCharacterFrame;
+    Sprite_Character.prototype.updateCharacterFrame = function() {
+
+
+        if (this._manipulatingFlashDuration == 0) {
+            
+            this._manipulatingFlashColor = [255, 255, 255, 160];
+            this._manipulatingFlashDuration = 60;
+        }
+
+        if (this._manipulatingFlashDuration > 0) {
+            var d = this._manipulatingFlashDuration--;
+            this._manipulatingFlashColor[3] *= (d - 1) / d;
+            this.setBlendColor(this._manipulatingFlashColor);
+        }
+
+        _Sprite_Character_updateCharacterFrame.apply(this, arguments);
+    }
+        
 })(this);
