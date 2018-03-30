@@ -344,6 +344,17 @@
         return null;
     }
 
+    
+    MovingHelper.findObject = function(x, y, ridding) {
+        var events = $gameMap.eventsXyNt(x, y);
+        for(var i = 0; i < events.length; i++) {
+            if(events[i].isMapObject()) {
+                return events[i];
+            }
+        }
+        return null;
+    }
+
     // t:現在時間(0.0～d) b:開始値 c:値の変化量 (目標値-開始値) d:変化にかける時間
     MovingHelper.linear = function(t, b, c, d) {
 		return c * (t / d) + b;
@@ -364,6 +375,10 @@
     // 　
     Game_BattlerBase.JUMP_WAIT_COUNT   = 4;
 
+    Game_BattlerBase.MOVINGMODE_DEFAULT   = 0;
+    Game_BattlerBase.MOVINGMODE_PUSHED   = 1;
+    Game_BattlerBase.MOVINGMODE_PUSHING   = 2;
+
     var _Game_CharacterBase_initMembers = Game_CharacterBase.prototype.initMembers;
     Game_CharacterBase.prototype.initMembers = function() {
         _Game_CharacterBase_initMembers.apply(this, arguments);
@@ -377,6 +392,8 @@
         this._getonFrameMax = 0;
         this._getonStartX = 0;
         this._getonStartY = 0;
+        this._movingMode = Game_BattlerBase.MOVINGMODE_DEFAULT; // どのような原因で移動中であるか。stop でリセット
+        this._orignalMovingSpeed = 0;
     }
 
     var _Game_CharacterBase_screenZ = Game_CharacterBase.prototype.screenZ;
@@ -432,6 +449,8 @@
                 else if (this.tryMoveGroundToObject(d)) {
                 }
                 else if (this.tryJumpGroundToObject(d)) {
+                }
+                else if (this.tryPushObjectAndMove(d)) {
                 }
             }
         }
@@ -520,6 +539,52 @@
         }
         return false;
     };
+
+
+    Game_CharacterBase.prototype.tryPushObjectAndMove = function(d) {
+        var dx = Math.round(MovingHelper.roundXWithDirectionLong(this._x, d, 1));
+        var dy = Math.round(MovingHelper.roundYWithDirectionLong(this._y, d, 1));
+
+        var obj = MovingHelper.findObject(dx, dy, false);
+        if (obj) {
+            if (obj.tryMoveAsPushableObject(d)) {
+                console.log(obj);
+                this.moveToDir(d, true);
+                if (this._orignalMovingSpeed == 0) {
+                    this._orignalMovingSpeed = this.moveSpeed();
+                }
+                this.setMoveSpeed(obj.moveSpeed());
+                this._movingMode = Game_BattlerBase.MOVINGMODE_PUSHING;
+    
+                this.setMovementSuccess(true);
+                return true;
+            }
+        }
+        
+        return false;
+    };
+
+    
+    Game_CharacterBase.prototype.tryMoveAsPushableObject = function(d) {
+        var dx = Math.round(MovingHelper.roundXWithDirectionLong(this._x, d, 1));
+        var dy = Math.round(MovingHelper.roundYWithDirectionLong(this._y, d, 1));
+        if ($gameMap.terrainTag(dx, dy) == 7) {
+            this.moveStraight(d);
+            if (this.isMovementSucceeded()) {
+                this._movingMode = Game_BattlerBase.MOVINGMODE_PUSHED;
+                return true;
+            }
+        }
+        return false;
+    };
+
+
+
+
+
+
+
+
 
     Game_CharacterBase.prototype.moveToDir = function(d, withAjust) {
 
@@ -649,6 +714,10 @@
         return -1;
     };
 
+    Game_CharacterBase.prototype.isMapObject = function() {
+        return false;
+    };
+
     // この人が乗っているオブジェクト
     Game_CharacterBase.prototype.riddingObject = function() {
         if (this._ridingCharacterId < 0) {
@@ -763,6 +832,8 @@
 
     var _Game_CharacterBase_updateMove = Game_CharacterBase.prototype.updateMove;
     Game_CharacterBase.prototype.updateMove = function() {
+        var oldMoving = this.isMoving();
+
         _Game_CharacterBase_updateMove.apply(this, arguments);
 
         if (this._nowGetOnOrOff != 0 && this.isMoving()) {
@@ -789,6 +860,10 @@
                 // 移動完了
                 this._nowGetOnOrOff = 0;
             }
+        }
+
+        if (oldMoving != this.isMoving() && !this.isMoving()) {
+            this.onStepEnd();
         }
     };
     
@@ -829,6 +904,19 @@
             this._y = obj._y - obj.objectHeight();
             this._realX = obj._realX;
             this._realY = obj._realY - (obj.objectHeight());
+        }
+    }
+    
+    // 1歩歩き終わり、次の移動ができる状態になった
+    Game_CharacterBase.prototype.onStepEnd = function() {
+
+        if (this._movingMode == Game_BattlerBase.MOVINGMODE_PUSHING) {
+            this.setMoveSpeed(this._orignalMovingSpeed);
+            this._orignalMovingSpeed = 0;
+            this._movingMode = Game_BattlerBase.MOVINGMODE_DEFAULT;
+        }
+        else if (this._movingMode == Game_BattlerBase.MOVINGMODE_PUSHING) {
+            this._movingMode = Game_BattlerBase.MOVINGMODE_DEFAULT;
         }
     }
 
@@ -874,9 +962,14 @@
     var _Game_Event_initialize = Game_Event.prototype.initialize;
     Game_Event.prototype.initialize = function(mapId, eventId) {
         this._gsObjectHeight = -1;
+        this._isMapObject = false;
         _Game_Event_initialize.apply(this, arguments);
 
         //this.parseNoteForGSObj(this.event().note);
+    };
+
+    Game_Event.prototype.isMapObject = function() {
+        return this._isMapObject;
     };
 
     Game_Event.prototype.gsObjectId = function() {
@@ -901,6 +994,7 @@
 
         var index = this.event().note.indexOf("@MapObject");
         if (index >= 0) {
+            this._isMapObject = true;
             this.parseListCommentForAMPSObject();
         }
     }
