@@ -51,29 +51,6 @@
     
     //-----------------------------------------------------------------------------
     // Game_Map
-    // 　
-    var _Game_Map_setup = Game_Map.prototype.setup;
-    Game_Map.prototype.setup = function(mapId) {
-        _Game_Map_setup.apply(this, arguments);
-
-        /*
-        console.log(this.tileset());
-        if (this.tileset()) {
-            var tilesetNames = this.tileset().tilesetNames;
-            for (var i = 0; i < tilesetNames.length; i++) {
-
-                tokens = tilesetNames[i].split(/\.(?=[^.]+$)/);
-                path = 'img/tilesets/' + tokens[0] + '.txt';
-
-                StorageManager.load();
-
-                console.log(path);
-                //this._tilemap.bitmaps[i] = ImageManager.loadTileset(tilesetNames[i]);
-            }
-        }
-        */
-       // StorageManager.load();
-    };
 
     // 全方位進入禁止確認
     Game_Map.prototype.checkNotPassageAll = function(x, y) {
@@ -345,6 +322,26 @@
     }
 
     
+    MovingHelper.findObjectByObjectId = function(objectId) {
+
+        var events = $gameMap.events();
+        for(var i = 0; i < events.length; i++) {
+            if(events[i].gsObjectId() == objectId) {
+                return events[i];
+            }
+        }
+        return null;
+    }
+
+    // id: 0=Player, 1~=Event
+    MovingHelper.findCharacterById = function(id) {
+        if (id == 0) {
+            return $gamePlayer;
+        }
+        var events = $gameMap.events();
+        return events[id];
+    }
+
     MovingHelper.findObject = function(x, y, ridding) {
         var events = $gameMap.eventsXyNt(x, y);
         for(var i = 0; i < events.length; i++) {
@@ -352,6 +349,23 @@
                 return events[i];
             }
         }
+        return null;
+    }
+
+    MovingHelper.findObjectLineRange = function(character, d, ranegLength) {
+
+        for (var iLen = 0; iLen < ranegLength; iLen++) {
+            var dx = Math.round(MovingHelper.roundXWithDirectionLong(character._x, d, iLen + 1));
+            var dy = Math.round(MovingHelper.roundYWithDirectionLong(character._y, d, iLen + 1));
+
+            var events = $gameMap.eventsXyNt(dx, dy);
+            for(var iEvent = 0; iEvent < events.length; iEvent++) {
+                if(events[iEvent].isMapObject()) {
+                    return events[iEvent];
+                }
+            }
+        }
+
         return null;
     }
 
@@ -373,7 +387,7 @@
     //-----------------------------------------------------------------------------
     // Game_CharacterBase
     // 　
-    Game_BattlerBase.JUMP_WAIT_COUNT   = 4;
+    Game_BattlerBase.JUMP_WAIT_COUNT   = 15;
 
     Game_BattlerBase.MOVINGMODE_DEFAULT   = 0;
     Game_BattlerBase.MOVINGMODE_PUSHED   = 1;
@@ -394,6 +408,7 @@
         this._getonStartY = 0;
         this._movingMode = Game_BattlerBase.MOVINGMODE_DEFAULT; // どのような原因で移動中であるか。stop でリセット
         this._orignalMovingSpeed = 0;
+        this._movingBehavior = null;
     }
 
     var _Game_CharacterBase_screenZ = Game_CharacterBase.prototype.screenZ;
@@ -896,6 +911,11 @@
 
     var _Game_CharacterBase_update = Game_CharacterBase.prototype.update;
     Game_CharacterBase.prototype.update = function() {
+        if (this._movingBehavior) {
+            this._movingBehavior.onUpdate(this);
+            return;
+        }
+
         _Game_CharacterBase_update.apply(this, arguments);
 
         if (this.ridding() && this._nowGetOnOrOff == 0) {
@@ -936,6 +956,13 @@
         this._getonStartY = this._realY;
     }
 
+    Game_CharacterBase.prototype.startMovingBehavior = function(behavior) {
+        this._movingBehavior = behavior;
+    };
+    
+    Game_CharacterBase.prototype.endMovingBehavior = function() {
+        this._movingBehavior = null;
+    };
     
     //-----------------------------------------------------------------------------
     // Game_Player
@@ -955,6 +982,14 @@
         }
     };
     
+    var _Game_Player_getInputDirection = Game_Player.prototype.getInputDirection;
+    Game_Player.prototype.getInputDirection = function() {
+        if (this._movingBehavior) {
+            return;
+        }
+        return _Game_Player_getInputDirection.apply(this, arguments);
+    };
+
     //-----------------------------------------------------------------------------
     // Game_Event
     // 　
@@ -1057,36 +1092,121 @@
         }
     };
 
+
+
+
+
+
+
+
+
+    //=============================================================================
+
+
     //-----------------------------------------------------------------------------
-    // Sprite_Character
+    // MapSkillManager
+    // 　
 
+    function MapSkillManager() {
+        this.initialize.apply(this, arguments);
+    };
 
-    var _Sprite_Character_initMembers = Sprite_Character.prototype.initMembers;
-    Sprite_Character.prototype.initMembers = function() {
-        _Sprite_Character_initMembers.apply(this, arguments);
-        this._manipulatingFlashDuration = 0;
-        this._manipulatingFlashColor = [0, 0, 0, 0];
-        this._manipulatingFlashDuration = 0;
+    MapSkillManager.prototype.initialize = function() {
+    };
+
+    MapSkillManager.prototype.reset = function() {
+    };
+
+    MapSkillManager.prototype.startControll = function(controllName, controller, controllee) {
+        controller.startMovingBehavior(new MovingBehavior_MapSkillController_Move(controllee));
+    };
+    
+    MapSkillManager.prototype.endControll = function() {
+        
     };
 
 
-    var _Sprite_Character_updateCharacterFrame = Sprite_Character.prototype.updateCharacterFrame;
-    Sprite_Character.prototype.updateCharacterFrame = function() {
+    //-----------------------------------------------------------------------------
+    // Game_Map
+    // 　
 
+    var _Game_Map_initialize = Game_Map.prototype.initialize;
+    Game_Map.prototype.initialize = function() {
+        _Game_Map_initialize.apply(this, arguments);
+        this._mapSkillManager = new MapSkillManager();
+    };
 
-        if (this._manipulatingFlashDuration == 0) {
-            
-            this._manipulatingFlashColor = [255, 255, 255, 160];
-            this._manipulatingFlashDuration = 60;
+    var _Game_Map_setup = Game_Map.prototype.setup;
+    Game_Map.prototype.setup = function(mapId) {
+        _Game_Map_setup.apply(this, arguments);
+        this._mapSkillManager.reset();
+    };
+    
+    Game_Map.prototype.mapSkillManager = function() {
+        return this._mapSkillManager;
+    };
+
+    //-----------------------------------------------------------------------------
+    // MovingBehaviorBase
+    // 　
+
+    function MovingBehaviorBase() {
+        this.initialize.apply(this, arguments);
+    };
+
+    MovingBehaviorBase.prototype.initialize = function() {
+    };
+
+    MovingBehaviorBase.prototype.onUpdate = function(ownerCharacter) {
+    };
+
+    
+    //-----------------------------------------------------------------------------
+    // MovingBehavior_MapSkillController_Move
+    // 　
+
+    function MovingBehavior_MapSkillController_Move() {
+        this.initialize.apply(this, arguments);
+    };
+
+    MovingBehavior_MapSkillController_Move.prototype = Object.create(MovingBehaviorBase.prototype);
+    MovingBehavior_MapSkillController_Move.prototype.constructor = MovingBehavior_MapSkillController_Move;
+
+    MovingBehavior_MapSkillController_Move.prototype.initialize = function(controllee) {
+        this._controllee = controllee;
+        this._state = "input";
+    };
+
+    MovingBehavior_MapSkillController_Move.prototype.onUpdate = function(ownerCharacter) {
+        if (this._state == "input") {
+            var d = Input.dir4;;
+            if (d != 0) {
+                this._controllee.moveStraight(d);
+                if (this._controllee.isMovementSucceeded()) {
+                    this._state = "prologue";
+                }
+            }
         }
-
-        if (this._manipulatingFlashDuration > 0) {
-            var d = this._manipulatingFlashDuration--;
-            this._manipulatingFlashColor[3] *= (d - 1) / d;
-            this.setBlendColor(this._manipulatingFlashColor);
+        else if (this._state == "prologue") {
+            if (this._controllee.isStopping()) {
+                ownerCharacter.endMovingBehavior();
+            }
         }
+    };
 
-        _Sprite_Character_updateCharacterFrame.apply(this, arguments);
-    }
+    //-----------------------------------------------------------------------------
+    // Game_Interpreter
+    
+    var _Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
+    Game_Interpreter.prototype.pluginCommand = function(command, args) {
+        _Game_Interpreter_pluginCommand.apply(this, arguments);
+        if (command == "AMPS_SKILL_MOVE") {
+            var controller = MovingHelper.findCharacterById(Number(args[0]));
+            if (controller) {
+                var controllee = MovingHelper.findObjectLineRange(controller, controller.direction(), 2);
+                $gameMap.mapSkillManager().startControll("move", controller, controllee);
+            }
+        }
+    };
         
 })(this);
