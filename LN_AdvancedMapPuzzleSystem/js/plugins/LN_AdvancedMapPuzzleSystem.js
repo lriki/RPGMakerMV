@@ -5,16 +5,18 @@
 // This software is released under the MIT License.
 // http://opensource.org/licenses/mit-license.php
 // ----------------------------------------------------------------------------
-// Version
-// -
+// [GitHub] : https://github.com/lriki/RPGMakerMV
+// [Twitter]: https://twitter.com/lriki8
 //=============================================================================
 
 /*:
- * @plugindesc 謎解きマップシステムプラグイン v0.1.0
+ * @plugindesc 謎解きマップシステムプラグイン v0.2.0
  * @author lriki
  *
  * @help マップ上のキャラクター移動やイベントシステムを拡張し、
  * 謎解きの幅を広げるための様々な機能を追加します。
+ * 
+ * リリースノート：https://github.com/lriki/RPGMakerMV/milestones
  * 
  * MIT License
  */
