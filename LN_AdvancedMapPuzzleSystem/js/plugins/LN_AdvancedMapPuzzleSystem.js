@@ -339,7 +339,7 @@
             return $gamePlayer;
         }
         var events = $gameMap.events();
-        return events[id];
+        return events[id - 1];
     }
 
     MovingHelper.findObject = function(x, y, ridding) {
@@ -406,9 +406,11 @@
         this._getonFrameMax = 0;
         this._getonStartX = 0;
         this._getonStartY = 0;
+
         this._movingMode = Game_BattlerBase.MOVINGMODE_DEFAULT; // どのような原因で移動中であるか。stop でリセット
         this._orignalMovingSpeed = 0;
-        this._movingBehavior = null;
+        this._movingBehavior = null;    // owner であれば持っている
+        this._movingBehaviorOwnerCharacterId = -1;  // save に備えて参照ではなく番号で保持。0:player, 1~:event
     }
 
     var _Game_CharacterBase_screenZ = Game_CharacterBase.prototype.screenZ;
@@ -465,7 +467,7 @@
                 }
                 else if (this.tryJumpGroundToObject(d)) {
                 }
-                else if (this.tryPushObjectAndMove(d)) {
+                else if (MovingBehavior_PushMoving.tryPushObjectAndMove(this, d)) {
                 }
             }
         }
@@ -555,43 +557,6 @@
         return false;
     };
 
-
-    Game_CharacterBase.prototype.tryPushObjectAndMove = function(d) {
-        var dx = Math.round(MovingHelper.roundXWithDirectionLong(this._x, d, 1));
-        var dy = Math.round(MovingHelper.roundYWithDirectionLong(this._y, d, 1));
-
-        var obj = MovingHelper.findObject(dx, dy, false);
-        if (obj) {
-            if (obj.tryMoveAsPushableObject(d)) {
-                console.log(obj);
-                this.moveToDir(d, true);
-                if (this._orignalMovingSpeed == 0) {
-                    this._orignalMovingSpeed = this.moveSpeed();
-                }
-                this.setMoveSpeed(obj.moveSpeed());
-                this._movingMode = Game_BattlerBase.MOVINGMODE_PUSHING;
-    
-                this.setMovementSuccess(true);
-                return true;
-            }
-        }
-        
-        return false;
-    };
-
-    
-    Game_CharacterBase.prototype.tryMoveAsPushableObject = function(d) {
-        var dx = Math.round(MovingHelper.roundXWithDirectionLong(this._x, d, 1));
-        var dy = Math.round(MovingHelper.roundYWithDirectionLong(this._y, d, 1));
-        if ($gameMap.terrainTag(dx, dy) == 7) {
-            this.moveStraight(d);
-            if (this.isMovementSucceeded()) {
-                this._movingMode = Game_BattlerBase.MOVINGMODE_PUSHED;
-                return true;
-            }
-        }
-        return false;
-    };
 
 
 
@@ -760,8 +725,15 @@
         return null;
     };
     
-
-    
+    Game_CharacterBase.prototype.isControlledByMovingBehavior = function() {
+        if (this._movingBehavior != null) {
+            return true;
+        }
+        if (this._movingBehaviorOwnerCharacterId >= 0) {
+            return true;
+        }
+        return false;
+    };
     
     
 
@@ -812,7 +784,6 @@
         //
         //
         if (this.ridding()) {
-            //console.log(this.gsObjectId(), this._ridingCharacterId);
             return false;
         }
         else {
@@ -912,8 +883,15 @@
     var _Game_CharacterBase_update = Game_CharacterBase.prototype.update;
     Game_CharacterBase.prototype.update = function() {
         if (this._movingBehavior) {
-            this._movingBehavior.onUpdate(this);
-            return;
+            if (this._movingBehavior.onOwnerUpdate(this)) {
+                return;
+            }
+        }
+        if (this._movingBehaviorOwnerCharacterId >= 0) {
+            var character = MovingHelper.findCharacterById(this._movingBehaviorOwnerCharacterId);
+            if (character._movingBehavior.onTargetUpdate(this)) {
+                return;
+            }
         }
 
         _Game_CharacterBase_update.apply(this, arguments);
@@ -929,14 +907,12 @@
     
     // 1歩歩き終わり、次の移動ができる状態になった
     Game_CharacterBase.prototype.onStepEnd = function() {
-
-        if (this._movingMode == Game_BattlerBase.MOVINGMODE_PUSHING) {
-            this.setMoveSpeed(this._orignalMovingSpeed);
-            this._orignalMovingSpeed = 0;
-            this._movingMode = Game_BattlerBase.MOVINGMODE_DEFAULT;
+        if (this._movingBehavior) {
+            this._movingBehavior.onOwnerStepEnding(this);
         }
-        else if (this._movingMode == Game_BattlerBase.MOVINGMODE_PUSHING) {
-            this._movingMode = Game_BattlerBase.MOVINGMODE_DEFAULT;
+        if (this._movingBehaviorOwnerCharacterId >= 0) {
+            var character = MovingHelper.findCharacterById(this._movingBehaviorOwnerCharacterId)
+            character._movingBehavior.onTargetStepEnding(this);
         }
     }
 
@@ -955,12 +931,8 @@
         this._getonStartX = this._realX;
         this._getonStartY = this._realY;
     }
-
-    Game_CharacterBase.prototype.startMovingBehavior = function(behavior) {
-        this._movingBehavior = behavior;
-    };
     
-    Game_CharacterBase.prototype.endMovingBehavior = function() {
+    Game_CharacterBase.prototype.detachMovingBehavior = function() {
         this._movingBehavior = null;
     };
     
@@ -984,7 +956,7 @@
     
     var _Game_Player_getInputDirection = Game_Player.prototype.getInputDirection;
     Game_Player.prototype.getInputDirection = function() {
-        if (this._movingBehavior) {
+        if (this.isControlledByMovingBehavior()) {
             return;
         }
         return _Game_Player_getInputDirection.apply(this, arguments);
@@ -1155,10 +1127,125 @@
     };
 
     MovingBehaviorBase.prototype.initialize = function() {
+        this._ownerCharacterId = -1;
+        this._targetCharacterId = -1;
     };
 
-    MovingBehaviorBase.prototype.onUpdate = function(ownerCharacter) {
+    MovingBehaviorBase.prototype.attachMovingBehavior = function(ownerCharacter, targetCharacter) {
+        this._ownerCharacterId = ownerCharacter.gsObjectId();
+        this._targetCharacterId = targetCharacter.gsObjectId();
+        ownerCharacter._movingBehavior = this;
+        targetCharacter._movingBehaviorOwnerCharacterId = this._ownerCharacterId;
     };
+    
+    MovingBehaviorBase.prototype.detach = function() {
+        this.ownerCharacter()._movingBehavior = null;
+        this.targetCharacter()._movingBehaviorOwnerCharacterId = -1;
+        this._ownerCharacterId = -1;
+        this._targetCharacterId = -1;
+    }
+
+    MovingBehaviorBase.prototype.ownerCharacter = function() {
+        return MovingHelper.findCharacterById(this._ownerCharacterId);
+    };
+
+    MovingBehaviorBase.prototype.targetCharacter = function() {
+        return MovingHelper.findCharacterById(this._targetCharacterId);
+    };
+
+    // true を返すと処理済み。元の更新処理を行わない
+    MovingBehaviorBase.prototype.onOwnerUpdate = function(ownerCharacter) {
+        return false;
+    };
+
+    // 1歩の更新が終わり、stop 状態に以降した瞬間。ここでまた移動すると、移動ルートなどが割り込まずに移動を継続できる。
+    MovingBehaviorBase.prototype.onOwnerStepEnding = function(ownerCharacter) {
+    };
+
+    MovingBehaviorBase.prototype.onTargetUpdate = function(targetCharacter) {
+        return false;
+    };
+
+    MovingBehaviorBase.prototype.onTargetStepEnding = function(targetCharacter) {
+    };
+
+    //-----------------------------------------------------------------------------
+    // MovingBehavior_PushMoving
+    // 　
+
+    function MovingBehavior_PushMoving() {
+        this.initialize.apply(this, arguments);
+    };
+
+    MovingBehavior_PushMoving.prototype = Object.create(MovingBehaviorBase.prototype);
+    MovingBehavior_PushMoving.prototype.constructor = MovingBehavior_PushMoving;
+
+    MovingBehavior_PushMoving.tryPushObjectAndMove = function(character, d) {
+        var dx = Math.round(MovingHelper.roundXWithDirectionLong(character._x, d, 1));
+        var dy = Math.round(MovingHelper.roundYWithDirectionLong(character._y, d, 1));
+
+        var obj = MovingHelper.findObject(dx, dy, false);
+        if (obj) {
+            if (MovingBehavior_PushMoving.tryMoveAsPushableObject(obj, d)) {
+                character.moveToDir(d, true);
+                if (character._orignalMovingSpeed == 0) {
+                    character._orignalMovingSpeed = character.moveSpeed();
+                }
+                character.setMoveSpeed(obj.moveSpeed());
+                character._movingMode = Game_BattlerBase.MOVINGMODE_PUSHING;
+
+                var b = new MovingBehavior_PushMoving();
+                b.attachMovingBehavior(character, obj);
+    
+                character.setMovementSuccess(true);
+                return true;
+            }
+        }
+        
+        return false;
+    };
+
+    MovingBehavior_PushMoving.tryMoveAsPushableObject = function(obj, d) {
+        var dx = Math.round(MovingHelper.roundXWithDirectionLong(obj._x, d, 1));
+        var dy = Math.round(MovingHelper.roundYWithDirectionLong(obj._y, d, 1));
+        if ($gameMap.terrainTag(dx, dy) == 7) {
+            obj.moveStraight(d);
+            if (obj.isMovementSucceeded()) {
+                obj._movingMode = Game_BattlerBase.MOVINGMODE_PUSHED;
+                return true;
+            }
+        }
+        return false;
+    };
+
+    MovingBehavior_PushMoving.prototype.initialize = function() {
+    };
+
+    //MovingBehaviorBase.prototype.onOwnerUpdate = function(ownerCharacter) {
+    //    return true;
+    //};
+
+    MovingBehaviorBase.prototype.onOwnerStepEnding = function(ownerCharacter) {
+        ownerCharacter.setMoveSpeed(ownerCharacter._orignalMovingSpeed);
+        ownerCharacter._orignalMovingSpeed = 0;
+        ownerCharacter._movingMode = Game_BattlerBase.MOVINGMODE_DEFAULT;
+    };
+
+    MovingBehaviorBase.prototype.onTargetStepEnding = function(targetCharacter) {
+        targetCharacter._movingMode = Game_BattlerBase.MOVINGMODE_DEFAULT;
+        this.detach();
+    };
+
+
+
+
+
+
+
+
+
+
+
 
     
     //-----------------------------------------------------------------------------
