@@ -193,6 +193,16 @@
         return dy;
     };
 
+    // エッジタイル上にいて、外側を向いているか
+    MovingHelper.checkFacingOutsideOnEdgeTile = function(x, y, d) {
+        var x1 = Math.round(x);
+        var y1 = Math.round(y);
+        if ($gameMap.isPassable(x1, y1, d)) {
+            return false;
+        }
+        return true;
+    }
+
     MovingHelper.canPassJumpGroove = function(character, x, y, d) {
         if (d == 2 || d == 8) {
             //var nearYOffset = y - Math.floor(y);
@@ -288,6 +298,7 @@
         return new MovingResult(true, toX, toY);
     }
 
+    // 移動かジャンプかは length に指定
     MovingHelper.checkMoveOrJumpGroundToObject = function(x, y, d, length) {
         var x1 = Math.round(x);
         var y1 = Math.round(y);
@@ -301,14 +312,7 @@
         }
 
         // 乗れそうなオブジェクトを探す
-        var events = $gameMap.events();
-        var obj = null;
-        for(var i = 0; i < events.length; i++) {
-            if(events[i].checkPassRide(new_x, new_y)) {
-                obj = events[i];
-                break;
-            };
-        };
+        var obj = MovingHelper.findPassableRideObject(new_x, new_y);
         if (obj) {
             return obj;
         }
@@ -316,6 +320,7 @@
         return null;
     }
 
+    // 移動かジャンプかは length に指定
     MovingHelper.checkMoveOrJumpObjectToGround = function(character, x, y, d, length) {
         // ジャンプ先座標を求める
         var new_x = Math.round(MovingHelper.roundXWithDirectionLong(x, d, length));
@@ -325,8 +330,7 @@
             // 移動先から手前に移動できるなら崖ではない
             return false;
         }
-        if ($gameMap.checkNotPassageAll(new_x, new_y))
-        {
+        if ($gameMap.checkNotPassageAll(new_x, new_y)) {
             // 移動先が全方位進入禁止。壁とか。
             return false;
         }
@@ -343,14 +347,7 @@
         var new_y = Math.round(MovingHelper.roundYWithDirectionLong(y, d, length));
 
         // 乗れそうなオブジェクトを探す
-        var events = $gameMap.events();
-        var obj = null;
-        for(var i = 0; i < events.length; i++) {
-            if(events[i].checkPassRide(new_x, new_y)) {
-                obj = events[i];
-                break;
-            };
-        };
+        var obj = MovingHelper.findPassableRideObject(new_x, new_y);
         if (obj) {
             return obj;
         }
@@ -358,6 +355,16 @@
         return null;
     }
 
+    // グローバル座標 x, yから見た時、そこが乗れる位置であるマップオブジェクトを探す
+    MovingHelper.findPassableRideObject = function(x, y) {
+        var events = $gameMap.events();
+        for(var i = 0; i < events.length; i++) {
+            if(events[i].checkPassRide(x, y)) {
+                return events[i];
+            };
+        };
+        return null;
+    }
     
     MovingHelper.findObjectByObjectId = function(objectId) {
 
@@ -443,6 +450,7 @@
         this._getonFrameMax = 0;
         this._getonStartX = 0;
         this._getonStartY = 0;
+        this._forcePositionAdjustment = false;  // moveToDir 移動時、移動先位置を強制的に round するかどうか（半歩移動の封印）
 
         this._movingMode = Game_BattlerBase.MOVINGMODE_DEFAULT; // どのような原因で移動中であるか。stop でリセット
         this._orignalMovingSpeed = 0;
@@ -463,6 +471,15 @@
             return;
         }
 
+        if (MovingBehavior_PushMoving.tryPushObjectAndMove(this, d)) {
+            return;
+        }
+
+        this.moveStraightInternal(d);
+    }
+    
+    // 平行移動処理のうち、this の移動を行うものたち
+    Game_CharacterBase.prototype.moveStraightInternal = function(d) {
 
         if (this.ridding()) {
             // 何かのオブジェクトに乗っている。
@@ -496,15 +513,15 @@
             _Game_CharacterBase_moveStraight.apply(this, arguments);
             if (!this.isMovementSucceeded()) {
                 // 普通の移動ができなかったので特殊な移動を試みる
-                if (this.tryJumpGroundToGround(d)) {
+                /*if (MovingBehavior_PushMoving.tryPushObjectAndMove(this, d)) {
+                }
+                else*/ if (this.tryJumpGroundToGround(d)) {
                 }
                 else if (this.tryJumpGroove(d)) {
                 }
                 else if (this.tryMoveGroundToObject(d)) {
                 }
                 else if (this.tryJumpGroundToObject(d)) {
-                }
-                else if (MovingBehavior_PushMoving.tryPushObjectAndMove(this, d)) {
                 }
             }
         }
@@ -612,8 +629,12 @@
         this._realY = $gameMap.yWithDirection(this._y, this.reverseDir(d));
 
         //var y = this._y;
-        if (withAjust) {
+        if (withAjust || this._forcePositionAdjustment) {
             this._y = Math.round(this._y);
+        }
+        if (this._forcePositionAdjustment) {
+            this._x = Math.round(this._x);
+            console.log("ajust");
         }
     }
 
@@ -973,6 +994,15 @@
         this._movingBehavior = null;
     };
     
+    
+    var _Game_CharacterBase_isHalfMove = Game_CharacterBase.prototype.isHalfMove;
+    Game_CharacterBase.prototype.isHalfMove = function() {
+        if (this._forcePositionAdjustment)
+            return false;
+        else
+            return _Game_CharacterBase_isHalfMove.apply(this, arguments);
+    }
+
     //-----------------------------------------------------------------------------
     // Game_Player
     // 　
@@ -1222,22 +1252,70 @@
         var dy = Math.round(MovingHelper.roundYWithDirectionLong(character._y, d, 1));
 
         var obj = MovingHelper.findObject(dx, dy, false);
-        if (obj) {
-            if (MovingBehavior_PushMoving.tryMoveAsPushableObject(obj, d)) {
-                character.moveToDir(d, true);
-                if (character._orignalMovingSpeed == 0) {
-                    character._orignalMovingSpeed = character.moveSpeed();
-                }
-                character.setMoveSpeed(obj.moveSpeed());
-                character._movingMode = Game_BattlerBase.MOVINGMODE_PUSHING;
+        if (!obj) {
+            // 押せそうなオブジェクトは見つからなかった
+            return false;
+        }
 
+        if (obj.ridding()) {
+            // 何か別のオブジェクトに乗っている
+
+            if (character.ridding()) {
+                // 自分も何かのオブジェクトに乗っていれば押せる。すぐ隣とか。
+            }
+            else if (MovingHelper.checkFacingOutsideOnEdgeTile(character._x, character._y, d)) {
+                // 崖を臨んでいるなら押せる。
+            }
+            else {
+                // ダメかな
+                return false;
+            }
+        }
+        else {
+            // 別のオブジェクトに乗っていない
+
+            if (!character.ridding()) {
+                // 自分も乗っていなければ押せる
+            }
+            else if (MovingHelper.checkFacingOutsideOnEdgeTile(character._x, character._y, character.reverseDir(d))) {
+                // 自分は別のオブジェクトに乗っているが、押せそうなオブジェクトが崖際にいる場合は押せる
+            }
+            else {
+                // ダメかな
+                return false;
+            }
+        }
+
+
+
+
+
+
+        if (MovingBehavior_PushMoving.tryMoveAsPushableObject(obj, d)) {
+            //character.moveToDir(d, true);
+            
+            if (character._orignalMovingSpeed == 0) {
+                character._orignalMovingSpeed = character.moveSpeed();
+            }
+            console.log("move start");
+            character.setMoveSpeed(obj.moveSpeed());
+            character._movingMode = Game_BattlerBase.MOVINGMODE_PUSHING;
+            
+            character._forcePositionAdjustment = true;
+            character.moveStraightInternal(d);
+            character._forcePositionAdjustment = false;
+            if (character.isMovementSucceeded()) {
+
+
+    
                 var b = new MovingBehavior_PushMoving();
                 b.attachMovingBehavior(character, obj);
     
-                character.setMovementSuccess(true);
+                //character.setMovementSuccess(true);
                 return true;
             }
         }
+
         
         return false;
     };
@@ -1245,7 +1323,6 @@
     MovingBehavior_PushMoving.tryMoveAsPushableObject = function(obj, d) {
         var dx = Math.round(MovingHelper.roundXWithDirectionLong(obj._x, d, 1));
         var dy = Math.round(MovingHelper.roundYWithDirectionLong(obj._y, d, 1));
-        console.log(paramGuideLineTerrainTag);
         if ($gameMap.terrainTag(dx, dy) == paramGuideLineTerrainTag) {
             obj.moveStraight(d);
             if (obj.isMovementSucceeded()) {
@@ -1253,15 +1330,26 @@
                 return true;
             }
         }
+
+        if (obj.tryMoveGroundToObject(d)) {
+            return true;
+        }
+        if (obj.tryMoveObjectToObject(d)) {
+            return true;
+        }
+        if (obj.tryMoveObjectToGround(d)) {
+            return true;
+        }
+
         return false;
     };
 
     MovingBehavior_PushMoving.prototype.initialize = function() {
     };
 
-    //MovingBehaviorBase.prototype.onOwnerUpdate = function(ownerCharacter) {
-    //    return true;
-    //};
+    MovingBehaviorBase.prototype.onOwnerUpdate = function(ownerCharacter) {
+        return false;
+    };
 
     MovingBehaviorBase.prototype.onOwnerStepEnding = function(ownerCharacter) {
         ownerCharacter.setMoveSpeed(ownerCharacter._orignalMovingSpeed);
@@ -1271,7 +1359,10 @@
 
     MovingBehaviorBase.prototype.onTargetStepEnding = function(targetCharacter) {
         targetCharacter._movingMode = Game_BattlerBase.MOVINGMODE_DEFAULT;
+        
+        //this.ownerCharacter()._forcePositionAdjustment = false;
         this.detach();
+        
     };
 
 
