@@ -9,9 +9,14 @@
 // [Twitter]: https://twitter.com/lriki8
 //=============================================================================
 
-/*:
+/*:ja
  * @plugindesc 謎解きマップシステムプラグイン v0.2.0
  * @author lriki
+ * 
+ * @param GuideLineTerrainTag
+ * @desc 箱オブジェクトの移動ガイドラインとなる地形タグです。
+ * @default 7
+ * @type number
  *
  * @help マップ上のキャラクター移動やイベントシステムを拡張し、
  * 謎解きの幅を広げるための様々な機能を追加します。
@@ -22,6 +27,15 @@
  */
 
 (function(_global) {
+    var pluginName = 'LN_AdvancedMapPuzzleSystem';
+
+    // ガイドラインの地形タグ
+    //-----------------------------------------------------------------------------
+    // params
+    
+    var paramGuideLineTerrainTag     = PluginManager.parameters(pluginName)["GuideLineTerrainTag"];//getParamBoolean(['GuideLineTerrainTag', 'ガイドラインの地形タグ']);
+
+
     function splitExt(filename) {
         return filename.split(/\.(?=[^.]+$)/);
     }
@@ -51,6 +65,29 @@
     
     //-----------------------------------------------------------------------------
     // Game_Map
+
+    // fully override
+    Game_Map.prototype.checkPassage = function(x, y, bit) {
+        var flags = this.tilesetFlags();
+        var tiles = this.allTiles(x, y);
+        for (var i = 0; i < tiles.length; i++) {
+            var flag = flags[tiles[i]];
+
+            ////////// ガイドラインタグを通行判定から無視する
+            var tag = flags[tiles[i]] >> 12;
+            if (tag == paramGuideLineTerrainTag)
+                continue;
+            //////////
+
+            if ((flag & 0x10) !== 0)  // [*] No effect on passage
+                continue;
+            if ((flag & bit) === 0)   // [o] Passable
+                return true;
+            if ((flag & bit) === bit) // [x] Impassable
+                return false;
+        }
+        return false;
+    };
 
     // 全方位進入禁止確認
     Game_Map.prototype.checkNotPassageAll = function(x, y) {
@@ -1208,7 +1245,8 @@
     MovingBehavior_PushMoving.tryMoveAsPushableObject = function(obj, d) {
         var dx = Math.round(MovingHelper.roundXWithDirectionLong(obj._x, d, 1));
         var dy = Math.round(MovingHelper.roundYWithDirectionLong(obj._y, d, 1));
-        if ($gameMap.terrainTag(dx, dy) == 7) {
+        console.log(paramGuideLineTerrainTag);
+        if ($gameMap.terrainTag(dx, dy) == paramGuideLineTerrainTag) {
             obj.moveStraight(d);
             if (obj.isMovementSucceeded()) {
                 obj._movingMode = Game_BattlerBase.MOVINGMODE_PUSHED;
