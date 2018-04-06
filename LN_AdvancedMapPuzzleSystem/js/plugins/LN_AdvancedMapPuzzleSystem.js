@@ -162,6 +162,15 @@
         return Math.floor(character.y) !== character.y;
     };
 
+    // オリジナルの Game_Map.prototype.roundXWithDirection の処理
+    MovingHelper.roundXWithDirection = function(x, d) {
+        return $gameMap.roundX(x + (d === 6 ? 1 : d === 4 ? -1 : 0));
+    };
+    
+    MovingHelper.roundYWithDirection = function(y, d) {
+        return $gameMap.roundY(y + (d === 2 ? 1 : d === 8 ? -1 : 0));
+    };
+
     // ちなみにこれ系の "round" は マップのループ対応のための繰り返しを意味する
     MovingHelper.roundXWithDirectionLong = function(x, d, len) {
         var ic = Math.floor(len);
@@ -510,8 +519,18 @@
             this.setDirection(d);
         }
         else {
+            var oldX = this._x;
+            var oldY = this._y;
+
             _Game_CharacterBase_moveStraight.apply(this, arguments);
-            if (!this.isMovementSucceeded()) {
+            if (this.isMovementSucceeded()) {
+                if (this._forcePositionAdjustment) {
+                    // Ground to Ground 移動で、オブジェクトを押すときなどの位置合わせ
+                    this._x = Math.round(MovingHelper.roundXWithDirection(oldX, d));
+                    this._y = Math.round(MovingHelper.roundYWithDirection(oldY, d));
+                }
+            }
+            else {
                 // 普通の移動ができなかったので特殊な移動を試みる
                 /*if (MovingBehavior_PushMoving.tryPushObjectAndMove(this, d)) {
                 }
@@ -561,7 +580,7 @@
         if (obj != null) {
             this.setMovementSuccess(true);
             // 乗る
-            this.startMoveToObjectOrGround();
+            this.startMoveToObjectOrGround(false, d);
             this.moveToDir(d, true);
             this.rideToObject(obj);
             this._nowGetOnOrOff = 1;
@@ -574,7 +593,7 @@
         if (MovingHelper.checkMoveOrJumpObjectToGround(this, this._x, this._y, d, 1)) {
             this.setMovementSuccess(true);
             // 降りる
-            this.startMoveToObjectOrGround();
+            this.startMoveToObjectOrGround(true, d);
             this.moveToDir(d, false);
             this.getOffFromObject();
             this._nowGetOnOrOff = 2;
@@ -585,9 +604,9 @@
 
     Game_CharacterBase.prototype.tryMoveObjectToObject = function(d) {
         var obj = MovingHelper.checkMoveOrJumpObjectToObject(this._x, this._y, d, 1);
-        if (obj != null) {
+        if (obj != null && obj != this) {
             this.setMovementSuccess(true);
-            this.startMoveToObjectOrGround();
+            this.startMoveToObjectOrGround(false, d);
             this.moveToDir(d, false);
             this.getOffFromObject();
             this.rideToObject(obj);
@@ -634,7 +653,6 @@
         }
         if (this._forcePositionAdjustment) {
             this._x = Math.round(this._x);
-            console.log("ajust");
         }
     }
 
@@ -782,6 +800,12 @@
         }
         return null;
     };
+
+    // 自分から移動する人。箱オブジェクトを動かせるかどうか。マップオブジェクトは基本的に false。自分から移動はしない。
+    Game_CharacterBase.prototype.isMover = function() {
+        return false;
+    };
+
     
     Game_CharacterBase.prototype.isControlledByMovingBehavior = function() {
         if (this._movingBehavior != null) {
@@ -878,7 +902,6 @@
     Game_CharacterBase.prototype.updateMove = function() {
         var oldMoving = this.isMoving();
 
-        _Game_CharacterBase_updateMove.apply(this, arguments);
 
         if (this._nowGetOnOrOff != 0 && this.isMoving()) {
             this._getonFrameCount++;
@@ -900,10 +923,18 @@
             this._realX = MovingHelper.linear(t, this._getonStartX, tx - this._getonStartX, 1.0);
             this._realY = MovingHelper.linear(t, this._getonStartY, ty - this._getonStartY, 1.0);
 
+            // ここで論理座標も同期しておかないと、完了時の一瞬だけ画面が揺れる
+            // this._x = obj._x;
+            // this._y = obj._y - obj.objectHeight();
+
             if (this._getonFrameCount >= this._getonFrameMax) {
                 // 移動完了
                 this._nowGetOnOrOff = 0;
             }
+        }
+        else {
+            
+            _Game_CharacterBase_updateMove.apply(this, arguments);
         }
 
         if (oldMoving != this.isMoving() && !this.isMoving()) {
@@ -974,13 +1005,18 @@
         }
     }
 
-    Game_CharacterBase.prototype.startMoveToObjectOrGround = function() {
+    Game_CharacterBase.prototype.startMoveToObjectOrGround = function(getoff, d) {
         // 移動しているオブジェクトへなめらかに移動する対策
         
         this._getonFrameMax = (1.0 / this.distancePerFrame());
         this._getonFrameCount = 0;
         this._getonStartX = this._realX;
         this._getonStartY = this._realY;
+
+        if (getoff) {
+            //this._x = $gameMap.roundXWithDirection(this._x, d);
+            //this._y = $gameMap.roundYWithDirection(this._y, d);
+        }
     }
 
     Game_CharacterBase.prototype.startJumpToObject = function() {
@@ -1009,6 +1045,10 @@
 
     Game_Player.prototype.gsObjectId = function() {
         return 0;
+    };
+    
+    Game_Player.prototype.isMover = function() {
+        return true;
     };
     
     var _Game_Player_isCollided = Game_Player.prototype.isCollided;
@@ -1248,6 +1288,10 @@
     MovingBehavior_PushMoving.prototype.constructor = MovingBehavior_PushMoving;
 
     MovingBehavior_PushMoving.tryPushObjectAndMove = function(character, d) {
+        if (!character.isMover()) {
+            return false;
+        }
+
         var dx = Math.round(MovingHelper.roundXWithDirectionLong(character._x, d, 1));
         var dy = Math.round(MovingHelper.roundYWithDirectionLong(character._y, d, 1));
 
@@ -1258,13 +1302,13 @@
         }
 
         if (obj.ridding()) {
-            // 何か別のオブジェクトに乗っている
+            // オブジェクトが何か別のオブジェクトに乗っている
 
             if (character.ridding()) {
                 // 自分も何かのオブジェクトに乗っていれば押せる。すぐ隣とか。
             }
             else if (MovingHelper.checkFacingOutsideOnEdgeTile(character._x, character._y, d)) {
-                // 崖を臨んでいるなら押せる。
+                // 自分が崖を臨んでいるなら押せる。
             }
             else {
                 // ダメかな
@@ -1272,12 +1316,12 @@
             }
         }
         else {
-            // 別のオブジェクトに乗っていない
+            // オブジェクトは別のオブジェクトに乗っていない
 
             if (!character.ridding()) {
                 // 自分も乗っていなければ押せる
             }
-            else if (MovingHelper.checkFacingOutsideOnEdgeTile(character._x, character._y, character.reverseDir(d))) {
+            else if (MovingHelper.checkFacingOutsideOnEdgeTile(obj._x, obj._y, character.reverseDir(d))) {
                 // 自分は別のオブジェクトに乗っているが、押せそうなオブジェクトが崖際にいる場合は押せる
             }
             else {
@@ -1293,11 +1337,12 @@
 
         if (MovingBehavior_PushMoving.tryMoveAsPushableObject(obj, d)) {
             //character.moveToDir(d, true);
+            //console.log("move start");
+            //console.log(obj);
             
             if (character._orignalMovingSpeed == 0) {
                 character._orignalMovingSpeed = character.moveSpeed();
             }
-            console.log("move start");
             character.setMoveSpeed(obj.moveSpeed());
             character._movingMode = Game_BattlerBase.MOVINGMODE_PUSHING;
             
@@ -1327,9 +1372,12 @@
             obj.moveStraight(d);
             if (obj.isMovementSucceeded()) {
                 obj._movingMode = Game_BattlerBase.MOVINGMODE_PUSHED;
+                // 地形移動
                 return true;
             }
         }
+
+        // オブジェクト関係の移動は以下
 
         if (obj.tryMoveGroundToObject(d)) {
             return true;

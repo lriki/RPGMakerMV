@@ -1572,7 +1572,6 @@
             } else if (sy !== 0) {
                 this.moveStraight(sy > 0 ? 8 : 2);
             }
-            console.log("dddd");
             this.setMoveSpeed($gamePlayer.realMoveSpeed());
         }
     };
