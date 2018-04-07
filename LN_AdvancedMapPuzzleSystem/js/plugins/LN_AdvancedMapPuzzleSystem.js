@@ -527,29 +527,15 @@
             this.setDirection(d);
         }
         else {
-            var oldX = this._x;
-            var oldY = this._y;
-
-            _Game_CharacterBase_moveStraight.apply(this, arguments);
-            if (this.isMovementSucceeded()) {
-                if (this._forcePositionAdjustment) {
-                    // Ground to Ground 移動で、オブジェクトを押すときなどの位置合わせ
-                    this._x = Math.round(MovingHelper.roundXWithDirection(oldX, d));
-                    this._y = Math.round(MovingHelper.roundYWithDirection(oldY, d));
-                }
+            if (this.tryMoveGroundToGround(d)) {
             }
-            else {
-                // 普通の移動ができなかったので特殊な移動を試みる
-                /*if (MovingBehavior_PushMoving.tryPushObjectAndMove(this, d)) {
-                }
-                else*/ if (this.tryJumpGroundToGround(d)) {
-                }
-                else if (this.tryJumpGroove(d)) {
-                }
-                else if (this.tryMoveGroundToObject(d)) {
-                }
-                else if (this.tryJumpGroundToObject(d)) {
-                }
+            else if (this.tryJumpGroundToGround(d)) {
+            }
+            else if (this.tryJumpGroove(d)) {
+            }
+            else if (this.tryMoveGroundToObject(d)) {
+            }
+            else if (this.tryJumpGroundToObject(d)) {
             }
         }
     };
@@ -579,6 +565,40 @@
             this.setMovementSuccess(true);
             this.jumpToDir(d, 2, false);
             return true;
+        }
+        return false;
+    }
+
+    Game_CharacterBase.prototype.tryMoveGroundToGround = function(d) {
+
+        if (this.objectTypeName() == "box") {
+            var dx = Math.round(MovingHelper.roundXWithDirectionLong(this._x, d, 1));
+            var dy = Math.round(MovingHelper.roundYWithDirectionLong(this._y, d, 1));
+            if ($gameMap.terrainTag(dx, dy) == paramGuideLineTerrainTag && this.isMapPassable(this._x, this._y, d)) {
+
+                _Game_CharacterBase_moveStraight.apply(this, arguments);
+
+                if (this.isMovementSucceeded()) {
+                    // 地形移動
+                    return true;
+                }
+            }
+        }
+        else {
+            var oldX = this._x;
+            var oldY = this._y;
+    
+            _Game_CharacterBase_moveStraight.apply(this, arguments);
+
+            if (this.isMovementSucceeded()) {
+                if (this._forcePositionAdjustment) {
+                    // Ground to Ground 移動で、オブジェクトを押すときなどの位置合わせ
+                    this._x = Math.round(MovingHelper.roundXWithDirection(oldX, d));
+                    this._y = Math.round(MovingHelper.roundYWithDirection(oldY, d));
+                }
+
+                return true;
+            }
         }
         return false;
     }
@@ -1379,18 +1399,10 @@
     };
 
     MovingBehavior_PushMoving._tryMoveAsPushableObject = function(obj, d) {
-        var dx = Math.round(MovingHelper.roundXWithDirectionLong(obj._x, d, 1));
-        var dy = Math.round(MovingHelper.roundYWithDirectionLong(obj._y, d, 1));
-        if ($gameMap.terrainTag(dx, dy) == paramGuideLineTerrainTag && obj.isMapPassable(obj._x, obj._y, d)) {
-            obj.moveStraight(d);
-            if (obj.isMovementSucceeded()) {
-                // 地形移動
-                return true;
-            }
+
+        if (obj.tryMoveGroundToGround(d)) {
+            return true;
         }
-
-        // オブジェクト関係の移動は以下
-
         if (obj.tryMoveGroundToObject(d)) {
             return true;
         }
