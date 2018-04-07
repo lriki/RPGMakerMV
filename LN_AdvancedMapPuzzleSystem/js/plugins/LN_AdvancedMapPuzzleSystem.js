@@ -926,6 +926,10 @@
     Game_CharacterBase.prototype.fallable = function() {
         return false;
     };
+    
+    Game_CharacterBase.prototype.pushable = function() {
+        return this.objectTypeName() == "box" && this.rider() == null;
+    };
 
     Game_CharacterBase.prototype.isControlledByMovingBehavior = function() {
         if (this._movingBehavior != null) {
@@ -1249,6 +1253,23 @@
         return _Game_Player_getInputDirection.apply(this, arguments);
     };
 
+    var _Game_Player_canMove = Game_Player.prototype.canMove;
+    Game_Player.prototype.canMove = function() {
+        if (this._movingBehavior) {
+            // 移動制御中のタッチ移動や接触イベント起動を禁止
+            return false;
+        }
+        return _Game_Player_canMove.apply(this, arguments);
+    }
+    
+    var _Game_Player_isDashing = Game_Player.prototype.isDashing;
+    Game_Player.prototype.isDashing = function() {
+        if (this._movingBehavior) {
+            return false;
+        }
+        return _Game_Player_isDashing.apply(this, arguments);
+    };
+
     //-----------------------------------------------------------------------------
     // Game_Event
     // 　
@@ -1492,6 +1513,9 @@
         var obj = MovingHelper.findObject(dx, dy, false);
         if (!obj) {
             // 押せそうなオブジェクトは見つからなかった
+            return false;
+        }
+        if (!obj.pushable()) {
             return false;
         }
 
