@@ -1360,16 +1360,16 @@
 
 
         if (MovingBehavior_PushMoving._tryMoveAsPushableObject(obj, d)) {
-            var b = new MovingBehavior_PushMoving();
+            var behavior = new MovingBehavior_PushMoving();
             
-            b._ownerOrignalMovingSpeed = character.moveSpeed();
+            behavior._ownerOrignalMovingSpeed = character.moveSpeed();
             character.setMoveSpeed(obj.moveSpeed());
             
             character._forcePositionAdjustment = true;
             character.moveStraightInternal(d);
             character._forcePositionAdjustment = false;
             if (character.isMovementSucceeded()) {
-                b.attachMovingBehavior(character, obj);
+                behavior.attachMovingBehavior(character, obj);
                 return true;
             }
         }
@@ -1382,7 +1382,6 @@
         var dx = Math.round(MovingHelper.roundXWithDirectionLong(obj._x, d, 1));
         var dy = Math.round(MovingHelper.roundYWithDirectionLong(obj._y, d, 1));
         if ($gameMap.terrainTag(dx, dy) == paramGuideLineTerrainTag && obj.isMapPassable(obj._x, obj._y, d)) {
-            //console.log("ddddddd");
             obj.moveStraight(d);
             if (obj.isMovementSucceeded()) {
                 // 地形移動
@@ -1423,6 +1422,7 @@
         this.detach();
         
     };
+
 
 
 
