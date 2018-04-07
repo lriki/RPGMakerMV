@@ -34,6 +34,7 @@
     // params
     
     var paramGuideLineTerrainTag     = PluginManager.parameters(pluginName)["GuideLineTerrainTag"];//getParamBoolean(['GuideLineTerrainTag', 'ガイドラインの地形タグ']);
+    var paramFallSpeed = 4;
 
 
     function splitExt(filename) {
@@ -41,6 +42,7 @@
     }
 
     var _gsJumpSe = {name: "Evasion1", volume: 80, pitch: 110, pan: 0};
+    var _falledSe = {name: "Earth3", volume: 80, pitch: 100, pan: 0};
 
     //-----------------------------------------------------------------------------
     // SoundManager
@@ -59,6 +61,10 @@
         if ($dataSystem) {
             AudioManager.playStaticSe(_gsJumpSe);
         }
+    };
+
+    SoundManager.playGSFalled = function() {
+        AudioManager.playSe(_falledSe);
     };
 
     
@@ -506,6 +512,7 @@
         this._extraJumping = false;
         this._moveToFalling = false;    // 現在の移動ステップが終わったら落下する
         this._falling = false;
+        this._fallingOriginalSpeed = 0;
         this._fallingOriginalThrough = false;
     }
 
@@ -618,7 +625,8 @@
             }
 
             // 落下移動できる？
-            if ($gameMap.terrainTag(this._x, this._y) == paramGuideLineTerrainTag &&
+            if (this.fallable() &&
+                $gameMap.terrainTag(this._x, this._y) == paramGuideLineTerrainTag &&
                 MovingHelper.checkFacingOutsideOnEdgeTile(this._x, this._y, d) &&
                 MovingHelper.checkMoveOrJumpObjectToObject(this._x, this._y, d, 1) == null) // 乗れそうなオブジェクトがないこと
             {
@@ -675,10 +683,8 @@
                 return true;
             }
             else {
-                console.log("adf");
-                if (this.objectTypeName() == "box" &&
+                if (this.objectTypeName() == "box" && this.fallable() &&
                     !MovingHelper.checkFacingOtherEdgeTile(this._x, this._y, d, 1)) {
-                    console.log("ffff");
                     this.setMovementSuccess(true);
                     this.startMoveToObjectOrGround(true, d);
                     this.moveToDir(d, false);
@@ -779,7 +785,10 @@
     Game_CharacterBase.prototype.startFall = function(d) {
         this._falling = true;
         this._fallingOriginalThrough = this.isThrough(d);
+        this._fallingOriginalSpeed = this.moveSpeed();
         this.moveStraightInternal(2);
+        this.setThrough(true);
+        this.setMoveSpeed(paramFallSpeed);
     }
 
     var _Game_CharacterBase_jump = Game_CharacterBase.prototype.jump;
@@ -913,6 +922,10 @@
         return "";
     };
     
+    Game_CharacterBase.prototype.fallable = function() {
+        return false;
+    };
+
     Game_CharacterBase.prototype.isControlledByMovingBehavior = function() {
         if (this._movingBehavior != null) {
             return true;
@@ -1095,7 +1108,9 @@
                 // ガイドラインのタイルまで進んだら落下終了
                 this._falling = false;
                 this.setThrough(this._fallingOriginalThrough);
+                this.setMoveSpeed(this._fallingOriginalSpeed);
                 this.onStepEnd();
+                SoundManager.playGSFalled();
                 return;
             }
 
@@ -1105,6 +1120,7 @@
                 // 状態だけ戻して、以降は移動として処理する。
                 this._falling = false;
                 this.setThrough(this._fallingOriginalThrough);
+                this.setMoveSpeed(this._fallingOriginalSpeed);
                 return;
             }
 
@@ -1228,9 +1244,8 @@
         this._gsObjectHeight = -1;
         this._isMapObject = false;
         this._objectTypeName = "";
+        this._fallable = false;
         _Game_Event_initialize.apply(this, arguments);
-
-        //this.parseNoteForGSObj(this.event().note);
     };
 
     Game_Event.prototype.isMapObject = function() {
@@ -1247,6 +1262,10 @@
 
     Game_Event.prototype.objectTypeName = function() {
         return this._objectTypeName;
+    };
+
+    Game_Event.prototype.fallable = function() {
+        return this._fallable;
     };
 
     Game_Event.prototype.isCollidedWithEvents = function(x, y) {
@@ -1300,6 +1319,9 @@
                         case "h":
                         case "height":
                             this._gsObjectHeight = Number(tokens[1].trim()); 
+                            break;
+                        case "fallable":
+                            this._fallable = (tokens[1].trim() == 'true') ? true : false;
                             break;
                     }
                 }
@@ -1515,19 +1537,15 @@
     MovingBehavior_PushMoving._tryMoveAsPushableObject = function(obj, d) {
 
         if (obj.tryMoveGroundToGround(d)) {
-            console.log("q");
             return true;
         }
         if (obj.tryMoveGroundToObject(d, false)) {
-            console.log("q3");
             return true;
         }
         if (obj.tryMoveObjectToObject(d)) {
-            console.log("qt");
             return true;
         }
         if (obj.tryMoveObjectToGround(d)) {
-            console.log("qg");
             return true;
         }
 
