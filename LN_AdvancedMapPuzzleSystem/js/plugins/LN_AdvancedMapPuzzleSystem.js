@@ -222,9 +222,7 @@
     MovingHelper.checkFacingOtherEdgeTile = function(x, y, d, length) {
         var x1 = Math.round(MovingHelper.roundXWithDirectionLong(x, d, length));
         var y1 = Math.round(MovingHelper.roundYWithDirectionLong(y, d, length));
-        console.log("checkFacingOtherEdgeTile", x, y, x1, y1);
         if ($gameMap.isPassable(x1, y1, MovingHelper.reverseDir(d))) {
-            console.log("false");
             return false;
         }
         return true;
@@ -363,7 +361,7 @@
         var new_y = Math.round(MovingHelper.roundYWithDirectionLong(y, d, length));
 
         // 箱オブジェクトは特定の地形タグ上へのみ移動できる
-        if (character.objectTypeName() == "box") {
+        if (character.objectTypeName() == "box" && !character.isFalling()) {
             if ($gameMap.terrainTag(new_x, new_y) != paramGuideLineTerrainTag) {
                 return false;
             }
@@ -492,6 +490,10 @@
     Game_BattlerBase.MOVINGMODE_PUSHED   = 1;
     Game_BattlerBase.MOVINGMODE_PUSHING   = 2;
 
+    Game_BattlerBase.FAILLING_STATE_NONE   = 0;
+    Game_BattlerBase.FAILLING_STATE_FAILLING   = 1;
+    Game_BattlerBase.FAILLING_STATE_EPILOGUE_TO_RIDE = 2;
+
     var _Game_CharacterBase_initMembers = Game_CharacterBase.prototype.initMembers;
     Game_CharacterBase.prototype.initMembers = function() {
         _Game_CharacterBase_initMembers.apply(this, arguments);
@@ -511,7 +513,7 @@
         this._movingBehaviorOwnerCharacterId = -1;  // save に備えて参照ではなく番号で保持。0:player, 1~:event
         this._extraJumping = false;
         this._moveToFalling = false;    // 現在の移動ステップが終わったら落下する
-        this._falling = false;
+        this._fallingState = Game_BattlerBase.FAILLING_STATE_NONE;
         this._fallingOriginalSpeed = 0;
         this._fallingOriginalThrough = false;
     }
@@ -613,13 +615,12 @@
 
     Game_CharacterBase.prototype.tryMoveGroundToGround = function(d) {
 
-        if (this.objectTypeName() == "box") {
+        if (this.objectTypeName() == "box" && !this.isFalling()) {
             var dx = Math.round(MovingHelper.roundXWithDirectionLong(this._x, d, 1));
             var dy = Math.round(MovingHelper.roundYWithDirectionLong(this._y, d, 1));
             if ($gameMap.terrainTag(dx, dy) == paramGuideLineTerrainTag && this.isMapPassable(this._x, this._y, d)) {
                 _Game_CharacterBase_moveStraight.apply(this, arguments);
                 if (this.isMovementSucceeded()) {
-                    console.log(this);
                     return true;
                 }
             }
@@ -783,7 +784,7 @@
 
     // 現在位置から落下開始
     Game_CharacterBase.prototype.startFall = function(d) {
-        this._falling = true;
+        this._fallingState = Game_BattlerBase.FAILLING_STATE_FAILLING;
         this._fallingOriginalThrough = this.isThrough(d);
         this._fallingOriginalSpeed = this.moveSpeed();
         this.moveStraightInternal(2);
@@ -860,7 +861,7 @@
 
     
     Game_CharacterBase.prototype.isFalling = function() {
-        return this._falling;
+        return this._fallingState != Game_BattlerBase.FAILLING_STATE_NONE;
     };
 
     // GS オブジェクトとしての高さ。
@@ -1101,30 +1102,44 @@
     
     Game_CharacterBase.prototype.updateFall = function() {
         
-        _Game_CharacterBase_updateMove.apply(this, arguments);
+        //_Game_CharacterBase_updateMove.apply(this, arguments);
         
         if (!this.isMoving()) {
-            if ($gameMap.terrainTag(this._x, this._y) == paramGuideLineTerrainTag) {
-                // ガイドラインのタイルまで進んだら落下終了
-                this._falling = false;
+            if (this._fallingState == Game_BattlerBase.FAILLING_STATE_FAILLING) {
+
+                if ($gameMap.terrainTag(this._x, this._y) == paramGuideLineTerrainTag) {
+                    // ガイドラインのタイルまで進んだら落下終了
+                    this._fallingState = Game_BattlerBase.FAILLING_STATE_EPILOGUE_TO_RIDE;
+                    //this._fallingState = Game_BattlerBase.FAILLING_STATE_NONE;
+                    //this.setThrough(this._fallingOriginalThrough);
+                    //this.setMoveSpeed(this._fallingOriginalSpeed);
+                    //this.onStepEnd();
+                    //SoundManager.playGSFalled();
+                    //return;
+                }
+                // 乗れそうなオブジェクトへ地形判定無視で移動してみる
+                else if (this.tryMoveGroundToObject(2, true)) {
+                    this._fallingState = Game_BattlerBase.FAILLING_STATE_EPILOGUE_TO_RIDE;
+                    // オブジェクトに乗るように移動開始できた。
+                    // 状態だけ戻して、以降は移動として処理する。
+                    //this._falling = false;
+                    //this.setThrough(this._fallingOriginalThrough);
+                    //this.setMoveSpeed(this._fallingOriginalSpeed);
+                    //return;
+                }
+                else {
+                    this.moveStraightInternal(2);
+                }
+            }
+            
+            if (this._fallingState == Game_BattlerBase.FAILLING_STATE_EPILOGUE_TO_RIDE) {
+                // 落下終了
+                this._fallingState = Game_BattlerBase.FAILLING_STATE_NONE;
                 this.setThrough(this._fallingOriginalThrough);
                 this.setMoveSpeed(this._fallingOriginalSpeed);
                 this.onStepEnd();
                 SoundManager.playGSFalled();
-                return;
             }
-
-            // 乗れそうなオブジェクトへ地形判定無視で移動してみる
-            if (this.tryMoveGroundToObject(2, true)) {
-                // オブジェクトに乗るように移動開始できた。
-                // 状態だけ戻して、以降は移動として処理する。
-                this._falling = false;
-                this.setThrough(this._fallingOriginalThrough);
-                this.setMoveSpeed(this._fallingOriginalSpeed);
-                return;
-            }
-
-            this.moveStraightInternal(2);
         }
     }
 
@@ -1144,19 +1159,18 @@
             }
         }
 
+        _Game_CharacterBase_update.apply(this, arguments);
+
         if (this.isFalling()) {
             this.updateFall();
         }
-        else {
-            _Game_CharacterBase_update.apply(this, arguments);
 
-            if (this.ridding() && this._nowGetOnOrOff == 0) {
-                var obj = this.riddingObject();
-                this._x = obj._x;
-                this._y = obj._y - obj.objectHeight();
-                this._realX = obj._realX;
-                this._realY = obj._realY - (obj.objectHeight());
-            }
+        if (this.ridding() && this._nowGetOnOrOff == 0) {
+            var obj = this.riddingObject();
+            this._x = obj._x;
+            this._y = obj._y - obj.objectHeight();
+            this._realX = obj._realX;
+            this._realY = obj._realY - (obj.objectHeight());
         }
     }
     
@@ -1565,9 +1579,10 @@
     };
 
     MovingBehaviorBase.prototype.onTargetStepEnding = function(targetCharacter) {
-        
-        //this.ownerCharacter()._forcePositionAdjustment = false;
-        this.detach();
+        if (!targetCharacter.isFalling()) {
+            //this.ownerCharacter()._forcePositionAdjustment = false;
+            this.detach();
+        }
         
     };
 
