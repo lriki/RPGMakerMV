@@ -212,6 +212,18 @@
         return true;
     }
 
+    // d 方向に対面するエッジタイルがあるか
+    MovingHelper.checkFacingOtherEdgeTile = function(x, y, d, length) {
+        var x1 = Math.round(MovingHelper.roundXWithDirectionLong(x, d, length));
+        var y1 = Math.round(MovingHelper.roundYWithDirectionLong(y, d, length));
+        console.log("checkFacingOtherEdgeTile", x, y, x1, y1);
+        if ($gameMap.isPassable(x1, y1, MovingHelper.reverseDir(d))) {
+            console.log("false");
+            return false;
+        }
+        return true;
+    }
+
     MovingHelper.canPassJumpGroove = function(character, x, y, d) {
         if (d == 2 || d == 8) {
             //var nearYOffset = y - Math.floor(y);
@@ -304,20 +316,29 @@
             // 移動先にキャラクターがいる
             return new MovingResult(false);
         }
+
+        var toX1 = MovingHelper.roundXWithDirectionLong(x, d, 1);
+        var toY1 = MovingHelper.roundYWithDirectionLong(y, d, 1);
+        if (MovingHelper.isCollidedWithRiddingEvents(toX1, toY1)) {
+            // 崖と崖の間に、別のオブジェクトに乗ったオブジェクトがある場合は移動禁止。
+            return new MovingResult(false);
+        }
         return new MovingResult(true, toX, toY);
     }
 
     // 移動かジャンプかは length に指定
-    MovingHelper.checkMoveOrJumpGroundToObject = function(x, y, d, length) {
+    MovingHelper.checkMoveOrJumpGroundToObject = function(x, y, d, length, ignoreMapPassable) {
         var x1 = Math.round(x);
         var y1 = Math.round(y);
         // 移動先座標を求める
         var new_x = Math.round(MovingHelper.roundXWithDirectionLong(x, d, length));
         var new_y = Math.round(MovingHelper.roundYWithDirectionLong(y, d, length));
         
-        if ($gameMap.isPassable(x1, y1, d)) {
-            // 現在位置から移動できるなら崖ではない
-            return null;
+        if (!ignoreMapPassable) {
+            if ($gameMap.isPassable(x1, y1, d)) {
+                // 現在位置から移動できるなら崖ではない
+                return null;
+            }
         }
 
         // 乗れそうなオブジェクトを探す
@@ -327,7 +348,7 @@
         }
 
         return null;
-    }
+    };
 
     // 移動かジャンプかは length に指定
     MovingHelper.checkMoveOrJumpObjectToGround = function(character, x, y, d, length) {
@@ -371,6 +392,13 @@
 
         return null;
     }
+
+    MovingHelper.isCollidedWithRiddingEvents = function(x, y) {
+        var events = $gameMap.eventsXyNt(x, y);
+        return events.some(function(event) {
+            return event.ridding();
+        });
+    };
 
     // グローバル座標 x, yから見た時、そこが乗れる位置であるマップオブジェクトを探す
     MovingHelper.findPassableRideObject = function(x, y) {
@@ -430,6 +458,10 @@
         return null;
     }
 
+    MovingHelper.reverseDir = function(d) {
+        return 10 - d;
+    };
+
     // t:現在時間(0.0～d) b:開始値 c:値の変化量 (目標値-開始値) d:変化にかける時間
     MovingHelper.linear = function(t, b, c, d) {
 		return c * (t / d) + b;
@@ -472,6 +504,9 @@
         this._movingBehavior = null;    // owner であれば持っている
         this._movingBehaviorOwnerCharacterId = -1;  // save に備えて参照ではなく番号で保持。0:player, 1~:event
         this._extraJumping = false;
+        this._moveToFalling = false;    // 現在の移動ステップが終わったら落下する
+        this._falling = false;
+        this._fallingOriginalThrough = false;
     }
 
     var _Game_CharacterBase_screenZ = Game_CharacterBase.prototype.screenZ;
@@ -533,7 +568,7 @@
             }
             else if (this.tryJumpGroove(d)) {
             }
-            else if (this.tryMoveGroundToObject(d)) {
+            else if (this.tryMoveGroundToObject(d, false)) {
             }
             else if (this.tryJumpGroundToObject(d)) {
             }
@@ -575,13 +610,22 @@
             var dx = Math.round(MovingHelper.roundXWithDirectionLong(this._x, d, 1));
             var dy = Math.round(MovingHelper.roundYWithDirectionLong(this._y, d, 1));
             if ($gameMap.terrainTag(dx, dy) == paramGuideLineTerrainTag && this.isMapPassable(this._x, this._y, d)) {
-
                 _Game_CharacterBase_moveStraight.apply(this, arguments);
-
                 if (this.isMovementSucceeded()) {
-                    // 地形移動
+                    console.log(this);
                     return true;
                 }
+            }
+
+            // 落下移動できる？
+            if ($gameMap.terrainTag(this._x, this._y) == paramGuideLineTerrainTag &&
+                MovingHelper.checkFacingOutsideOnEdgeTile(this._x, this._y, d) &&
+                MovingHelper.checkMoveOrJumpObjectToObject(this._x, this._y, d, 1) == null) // 乗れそうなオブジェクトがないこと
+            {
+                this.moveToDir(d, false);
+                this.setMovementSuccess(true);
+                this._moveToFalling = true; // 1歩移動後、落下
+                return true;
             }
         }
         else {
@@ -603,9 +647,11 @@
         return false;
     }
 
-    Game_CharacterBase.prototype.tryMoveGroundToObject = function(d) {
-        var obj = MovingHelper.checkMoveOrJumpGroundToObject(this._x, this._y, d, 1);
+    Game_CharacterBase.prototype.tryMoveGroundToObject = function(d, ignoreMapPassable) {
+        var obj = MovingHelper.checkMoveOrJumpGroundToObject(this._x, this._y, d, 1, ignoreMapPassable);
         if (obj != null) {
+            //console.log("tryMoveGroundToObject");
+
             this.setMovementSuccess(true);
             // 乗る
             this.startMoveToObjectOrGround(false, d);
@@ -618,15 +664,33 @@
     }
     
     Game_CharacterBase.prototype.tryMoveObjectToGround = function(d) {
-        if (this.ridding() && MovingHelper.checkMoveOrJumpObjectToGround(this, this._x, this._y, d, 1)) {
-            this.setMovementSuccess(true);
-            // 降りる
-            this.startMoveToObjectOrGround(true, d);
-            this.moveToDir(d, false);
-            this.getOffFromObject();
-            this._nowGetOnOrOff = 2;
-            return true;
+        if (this.ridding()) {
+            if (MovingHelper.checkMoveOrJumpObjectToGround(this, this._x, this._y, d, 1)) {
+                this.setMovementSuccess(true);
+                // 降りる
+                this.startMoveToObjectOrGround(true, d);
+                this.moveToDir(d, false);
+                this.getOffFromObject();
+                this._nowGetOnOrOff = 2;
+                return true;
+            }
+            else {
+                console.log("adf");
+                if (this.objectTypeName() == "box" &&
+                    !MovingHelper.checkFacingOtherEdgeTile(this._x, this._y, d, 1)) {
+                    console.log("ffff");
+                    this.setMovementSuccess(true);
+                    this.startMoveToObjectOrGround(true, d);
+                    this.moveToDir(d, false);
+                    this.getOffFromObject();
+                    this._moveToFalling = true; // 1歩移動後、落下
+                    return true;
+                }
+            }
         }
+
+
+
         return false;
     }
 
@@ -645,7 +709,7 @@
     }
     
     Game_CharacterBase.prototype.tryJumpGroundToObject = function(d) {
-        var obj = MovingHelper.checkMoveOrJumpGroundToObject(this._x, this._y, d, 2);
+        var obj = MovingHelper.checkMoveOrJumpGroundToObject(this._x, this._y, d, 2, false);
         this.setMovementSuccess(obj != null);
         if (this.isMovementSucceeded()) {
             // 乗る
@@ -709,6 +773,13 @@
         this._waitAfterJump = Game_BattlerBase.JUMP_WAIT_COUNT;
         this._extraJumping = true;
         SoundManager.playGSJump();
+    }
+
+    // 現在位置から落下開始
+    Game_CharacterBase.prototype.startFall = function(d) {
+        this._falling = true;
+        this._fallingOriginalThrough = this.isThrough(d);
+        this.moveStraightInternal(2);
     }
 
     var _Game_CharacterBase_jump = Game_CharacterBase.prototype.jump;
@@ -779,6 +850,9 @@
     
 
     
+    Game_CharacterBase.prototype.isFalling = function() {
+        return this._falling;
+    };
 
     // GS オブジェクトとしての高さ。
     // 高さを持たないのは -1。（GSObject ではない）
@@ -970,7 +1044,14 @@
         }
 
         if (oldMoving != this.isMoving() && !this.isMoving()) {
-            this.onStepEnd();
+
+            if (this._moveToFalling) {
+                this._moveToFalling = false;
+                this.startFall();
+            }
+            else {
+                this.onStepEnd();
+            }
         }
     };
     
@@ -1004,9 +1085,37 @@
             this._extraJumping = false;
         }
     }
+    
+    Game_CharacterBase.prototype.updateFall = function() {
+        
+        _Game_CharacterBase_updateMove.apply(this, arguments);
+        
+        if (!this.isMoving()) {
+            if ($gameMap.terrainTag(this._x, this._y) == paramGuideLineTerrainTag) {
+                // ガイドラインのタイルまで進んだら落下終了
+                this._falling = false;
+                this.setThrough(this._fallingOriginalThrough);
+                this.onStepEnd();
+                return;
+            }
+
+            // 乗れそうなオブジェクトへ地形判定無視で移動してみる
+            if (this.tryMoveGroundToObject(2, true)) {
+                // オブジェクトに乗るように移動開始できた。
+                // 状態だけ戻して、以降は移動として処理する。
+                this._falling = false;
+                this.setThrough(this._fallingOriginalThrough);
+                return;
+            }
+
+            this.moveStraightInternal(2);
+        }
+    }
 
     var _Game_CharacterBase_update = Game_CharacterBase.prototype.update;
     Game_CharacterBase.prototype.update = function() {
+
+        // MovingBehavior への通知
         if (this._movingBehavior) {
             if (this._movingBehavior.onOwnerUpdate(this)) {
                 return;
@@ -1019,14 +1128,19 @@
             }
         }
 
-        _Game_CharacterBase_update.apply(this, arguments);
+        if (this.isFalling()) {
+            this.updateFall();
+        }
+        else {
+            _Game_CharacterBase_update.apply(this, arguments);
 
-        if (this.ridding() && this._nowGetOnOrOff == 0) {
-            var obj = this.riddingObject();
-            this._x = obj._x;
-            this._y = obj._y - obj.objectHeight();
-            this._realX = obj._realX;
-            this._realY = obj._realY - (obj.objectHeight());
+            if (this.ridding() && this._nowGetOnOrOff == 0) {
+                var obj = this.riddingObject();
+                this._x = obj._x;
+                this._y = obj._y - obj.objectHeight();
+                this._realX = obj._realX;
+                this._realY = obj._realY - (obj.objectHeight());
+            }
         }
     }
     
@@ -1401,15 +1515,19 @@
     MovingBehavior_PushMoving._tryMoveAsPushableObject = function(obj, d) {
 
         if (obj.tryMoveGroundToGround(d)) {
+            console.log("q");
             return true;
         }
-        if (obj.tryMoveGroundToObject(d)) {
+        if (obj.tryMoveGroundToObject(d, false)) {
+            console.log("q3");
             return true;
         }
         if (obj.tryMoveObjectToObject(d)) {
+            console.log("qt");
             return true;
         }
         if (obj.tryMoveObjectToGround(d)) {
+            console.log("qg");
             return true;
         }
 
