@@ -34,7 +34,7 @@
     // params
     
     var paramGuideLineTerrainTag     = PluginManager.parameters(pluginName)["GuideLineTerrainTag"];//getParamBoolean(['GuideLineTerrainTag', 'ガイドラインの地形タグ']);
-    var paramFallSpeed = 4;
+    var paramFallSpeed = 5;
 
 
     function splitExt(filename) {
