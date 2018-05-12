@@ -499,8 +499,7 @@
         _Game_CharacterBase_initMembers.apply(this, arguments);
         this._ridingCharacterId = -1;
         this._ridderCharacterId = -1;
-        this._ridingScreenZPriorityFlag = false;
-        this._ridingScreenZPriorityFlag = false;
+        this._ridingScreenZPriority = -1;
         this._waitAfterJump = 0;
         this._nowGetOnOrOff = 0;    // オブジェクトへの乗降のための移動中 (1:乗る 2:降りる)
         this._getonFrameCount = 0;
@@ -520,9 +519,18 @@
 
     var _Game_CharacterBase_screenZ = Game_CharacterBase.prototype.screenZ;
     Game_CharacterBase.prototype.screenZ = function() {
+
         var base = _Game_CharacterBase_screenZ.apply(this, arguments);
+        if (this.ridding()) {
+            base += this.riddingObject().screenZ();
+        }
+
+        if (this._ridingScreenZPriority >= 0) {
+            base = this._ridingScreenZPriority;
+        }
+
         var jumpZ = (this._extraJumping) ? 6 : 0;
-        return base + (this._ridingScreenZPriorityFlag ? 5 : 0) + jumpZ;
+        return base + jumpZ;
     };
 
     var _Game_CharacterBase_moveStraight = Game_CharacterBase.prototype.moveStraight;
@@ -959,9 +967,15 @@
 
     
     Game_CharacterBase.prototype.rideToObject = function(riddenObject) {
-        this._ridingScreenZPriorityFlag = true;
         this._ridingCharacterId = riddenObject.gsObjectId();
         riddenObject._ridderCharacterId = this.gsObjectId();
+
+        oldZ = this._ridingScreenZPriority;
+        this._ridingScreenZPriority = -1;
+        this._ridingScreenZPriority = this.screenZ();
+
+        // high obj -> low obj のとき、移動始めに隠れてしまう対策
+        this._ridingScreenZPriority = Math.max(this._ridingScreenZPriority, oldZ);
     };
     
     Game_CharacterBase.prototype.getOffFromObject = function() {
@@ -1016,7 +1030,7 @@
         _Game_CharacterBase_updateStop.apply(this, arguments);
 
         if (!this.ridding()) {
-            this._ridingScreenZPriorityFlag = false;
+            this._ridingScreenZPriority = -1;
         }
 
         this._nowGetOnOrOff = 0;
