@@ -1644,52 +1644,5 @@
 
 
     
-    //-----------------------------------------------------------------------------
-    // MovingBehavior_MapSkillController_Move
-    // 　
-
-    function MovingBehavior_MapSkillController_Move() {
-        this.initialize.apply(this, arguments);
-    };
-
-    MovingBehavior_MapSkillController_Move.prototype = Object.create(MovingBehaviorBase.prototype);
-    MovingBehavior_MapSkillController_Move.prototype.constructor = MovingBehavior_MapSkillController_Move;
-
-    MovingBehavior_MapSkillController_Move.prototype.initialize = function(controllee) {
-        this._controllee = controllee;
-        this._state = "input";
-    };
-
-    MovingBehavior_MapSkillController_Move.prototype.onUpdate = function(ownerCharacter) {
-        if (this._state == "input") {
-            var d = Input.dir4;;
-            if (d != 0) {
-                this._controllee.moveStraight(d);
-                if (this._controllee.isMovementSucceeded()) {
-                    this._state = "prologue";
-                }
-            }
-        }
-        else if (this._state == "prologue") {
-            if (this._controllee.isStopping()) {
-                ownerCharacter.endMovingBehavior();
-            }
-        }
-    };
-
-    //-----------------------------------------------------------------------------
-    // Game_Interpreter
-    
-    var _Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
-    Game_Interpreter.prototype.pluginCommand = function(command, args) {
-        _Game_Interpreter_pluginCommand.apply(this, arguments);
-        if (command == "AMPS_SKILL_MOVE") {
-            var controller = MovingHelper.findCharacterById(Number(args[0]));
-            if (controller) {
-                var controllee = MovingHelper.findObjectLineRange(controller, controller.direction(), 2);
-                $gameMap.mapSkillManager().startControll("move", controller, controllee);
-            }
-        }
-    };
         
 })(this);
