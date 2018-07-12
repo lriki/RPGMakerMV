@@ -533,6 +533,8 @@
         return base + jumpZ;
     };
 
+    //-------------------------------------------------------------------------
+
     var _Game_CharacterBase_moveStraight = Game_CharacterBase.prototype.moveStraight;
     Game_CharacterBase.prototype.moveStraight = function(d) {
         if (this._waitAfterJump > 0) {
@@ -558,22 +560,9 @@
             }
             else if (this.tryMoveObjectToObject(d)) {
             }
-            else if (MovingHelper.checkMoveOrJumpObjectToGround(this, this._x, this._y, d, 2)) {
-                this.setMovementSuccess(true);
-                this.jumpToDir(d, 2, false);
-                this.getOffFromObject();
-                this._nowGetOnOrOff = 2;
+            else if (this.tryJumpObjectToGround(d)) {
             }
-            else {
-                var obj = MovingHelper.checkMoveOrJumpObjectToObject(this._x, this._y, d, 2);
-                if (obj != null) {
-                    this.setMovementSuccess(true);
-                    this.jumpToDir(d, 2, true);
-                    this.getOffFromObject();
-                    this.rideToObject(obj);
-                    this.startJumpToObject();
-                    this._nowGetOnOrOff = 1;
-                }
+            else if (this.tryJumpObjectToObject(d)) {
             }
             
             this.setDirection(d);
@@ -622,8 +611,7 @@
     }
 
     Game_CharacterBase.prototype.tryMoveGroundToGround = function(d) {
-
-        if (this.objectTypeName() == "box" && !this.isFalling()) {
+        if (this.objectTypeName() == "box" && !this.isThrough()) {// && !this.isFalling()) {
             var dx = Math.round(MovingHelper.roundXWithDirectionLong(this._x, d, 1));
             var dy = Math.round(MovingHelper.roundYWithDirectionLong(this._y, d, 1));
             if ($gameMap.terrainTag(dx, dy) == paramGuideLineTerrainTag && this.isMapPassable(this._x, this._y, d)) {
@@ -633,7 +621,7 @@
                 }
             }
 
-            // 落下移動できる？
+            // 移動先、崖落ちの落下移動できる？
             if (this.fallable() &&
                 $gameMap.terrainTag(this._x, this._y) == paramGuideLineTerrainTag &&
                 MovingHelper.checkFacingOutsideOnEdgeTile(this._x, this._y, d) &&
@@ -667,8 +655,6 @@
     Game_CharacterBase.prototype.tryMoveGroundToObject = function(d, ignoreMapPassable) {
         var obj = MovingHelper.checkMoveOrJumpGroundToObject(this._x, this._y, d, 1, ignoreMapPassable);
         if (obj != null) {
-            //console.log("tryMoveGroundToObject");
-
             this.setMovementSuccess(true);
             // 乗る
             this.startMoveToObjectOrGround(false, d);
@@ -737,11 +723,32 @@
         return false;
     };
 
+    Game_CharacterBase.prototype.tryJumpObjectToGround = function(d) {
+        if (MovingHelper.checkMoveOrJumpObjectToGround(this, this._x, this._y, d, 2)) {
+            this.setMovementSuccess(true);
+            this.jumpToDir(d, 2, false);
+            this.getOffFromObject();
+            this._nowGetOnOrOff = 2;
+            return true;
+        }
+        return false;
+    }
 
+    Game_CharacterBase.prototype.tryJumpObjectToObject = function(d) {
+        var obj = MovingHelper.checkMoveOrJumpObjectToObject(this._x, this._y, d, 2);
+        if (obj != null) {
+            this.setMovementSuccess(true);
+            this.jumpToDir(d, 2, true);
+            this.getOffFromObject();
+            this.rideToObject(obj);
+            this.startJumpToObject();
+            this._nowGetOnOrOff = 1;
+            return true;
+        }
+        return false;
+    }
 
-
-
-
+    //-------------------------------------------------------------------------
 
 
 
@@ -795,9 +802,9 @@
         this._fallingState = Game_BattlerBase.FAILLING_STATE_FAILLING;
         this._fallingOriginalThrough = this.isThrough(d);
         this._fallingOriginalSpeed = this.moveSpeed();
-        this.moveStraightInternal(2);
         this.setThrough(true);
         this.setMoveSpeed(paramFallSpeed);
+        this.moveStraightInternal(2);
     }
 
     var _Game_CharacterBase_jump = Game_CharacterBase.prototype.jump;
