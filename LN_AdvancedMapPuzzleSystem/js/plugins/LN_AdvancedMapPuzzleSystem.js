@@ -804,7 +804,8 @@
         this._fallingOriginalSpeed = this.moveSpeed();
         this.setThrough(true);
         this.setMoveSpeed(paramFallSpeed);
-        this.moveStraightInternal(2);
+        //this.moveStraightInternal(2);
+        // 地面へ落ちるか、オブジェクトに乗るかは次の update で決める
     }
 
     var _Game_CharacterBase_jump = Game_CharacterBase.prototype.jump;
