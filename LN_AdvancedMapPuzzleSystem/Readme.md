@@ -1,4 +1,4 @@
-謎解きマップシステムプラグイン v0.2.0
+謎解きマップシステムプラグイン v0.3.0
 ====================
 
 マップ上のキャラクター移動やイベントシステムを拡張し、謎解きの幅を広げるための様々な機能を追加します。
@@ -360,5 +360,4 @@
 [The MIT License (MIT)](https://opensource.org/licenses/mit-license.php)
 
 また、テストプロジェクトには動作確認のため @triacontane 様の [HalfMove.js](https://github.com/triacontane/RPGMakerMV/blob/master/HalfMove.js) が含まれています。
-
 
