@@ -804,6 +804,7 @@
         this._fallingOriginalSpeed = this.moveSpeed();
         this.setThrough(true);
         this.setMoveSpeed(paramFallSpeed);
+        this.onStartedFalling();
         //this.moveStraightInternal(2);
         // 地面へ落ちるか、オブジェクトに乗るかは次の update で決める
     }
@@ -1211,6 +1212,9 @@
         }
     }
 
+    Game_CharacterBase.prototype.onStartedFalling = function() {
+    }
+
     Game_CharacterBase.prototype.startMoveToObjectOrGround = function(getoff, d) {
         // 移動しているオブジェクトへなめらかに移動する対策
         
@@ -1302,6 +1306,7 @@
         this._isMapObject = false;
         this._objectTypeName = "";
         this._fallable = false;
+        this._eventTriggerName = "";
         _Game_Event_initialize.apply(this, arguments);
     };
 
@@ -1323,6 +1328,18 @@
 
     Game_Event.prototype.fallable = function() {
         return this._fallable;
+    };
+    Game_Event.prototype.eventTriggerName = function() {
+        return this._eventTriggerName;
+    };
+    
+    var _Game_Event_isTriggerIn = Game_Event.prototype.isTriggerIn;
+    Game_Event.prototype.isTriggerIn = function(triggers) {
+        if (this.eventTriggerName() != "") {
+            // 何らかの特殊起動をするイベントは、通常のトリガーを封印
+            return false;
+        }
+        return _Game_Event_isTriggerIn.apply(this, arguments);
     };
 
     Game_Event.prototype.isCollidedWithEvents = function(x, y) {
@@ -1380,6 +1397,9 @@
                         case "fallable":
                             this._fallable = (tokens[1].trim() == 'true') ? true : false;
                             break;
+                        case "trigger":
+                            this._eventTriggerName = tokens[1].trim(); 
+                            break;
                     }
                 }
             }
@@ -1409,6 +1429,11 @@
     };
 
 
+    Game_Event.prototype.onStartedFalling = function() {
+        if (this.eventTriggerName() == "onStartedFalling") {
+            this.start();
+        }
+    }
 
 
 
