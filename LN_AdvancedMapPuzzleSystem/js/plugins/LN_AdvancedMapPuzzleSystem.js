@@ -804,6 +804,7 @@
         this._fallingOriginalSpeed = this.moveSpeed();
         this.setThrough(true);
         this.setMoveSpeed(paramFallSpeed);
+        this.onStartedFalling();
         //this.moveStraightInternal(2);
         // 地面へ落ちるか、オブジェクトに乗るかは次の update で決める
     }
@@ -1123,6 +1124,11 @@
 
         if (!this.isJumping()) {
             this._extraJumping = false;
+
+            if (oldJumping != this.isJumping()) {
+                // ジャンプ終了
+                this.onJumpEnd();
+            }
         }
     }
     
@@ -1209,6 +1215,26 @@
             var character = MovingHelper.findCharacterById(this._movingBehaviorOwnerCharacterId)
             character._movingBehavior.onTargetStepEnding(this);
         }
+
+        if (this.riddingObject() != null) {
+            // 何かに乗っていたら通知
+            this.riddingObject().onCharacterRideOn();
+        }
+    }
+
+    // ジャンプが終わり、次の移動ができる状態になった
+    Game_CharacterBase.prototype.onJumpEnd = function() {
+        if (this.riddingObject() != null) {
+            // 何かに乗っていたら通知
+            this.riddingObject().onCharacterRideOn();
+        }
+    }
+
+    // 他のキャラクターが上に乗った
+    Game_CharacterBase.prototype.onCharacterRideOn = function() {
+    }
+
+    Game_CharacterBase.prototype.onStartedFalling = function() {
     }
 
     Game_CharacterBase.prototype.startMoveToObjectOrGround = function(getoff, d) {
@@ -1302,6 +1328,7 @@
         this._isMapObject = false;
         this._objectTypeName = "";
         this._fallable = false;
+        this._eventTriggerName = "";
         _Game_Event_initialize.apply(this, arguments);
     };
 
@@ -1324,6 +1351,18 @@
     Game_Event.prototype.fallable = function() {
         return this._fallable;
     };
+    Game_Event.prototype.eventTriggerName = function() {
+        return this._eventTriggerName;
+    };
+    
+    var _Game_Event_isTriggerIn = Game_Event.prototype.isTriggerIn;
+    Game_Event.prototype.isTriggerIn = function(triggers) {
+        if (this.eventTriggerName() != "") {
+            // 何らかの特殊起動をするイベントは、通常のトリガーを封印
+            return false;
+        }
+        return _Game_Event_isTriggerIn.apply(this, arguments);
+    };
 
     Game_Event.prototype.isCollidedWithEvents = function(x, y) {
         var events = $gameMap.eventsXyNt(x, y);
@@ -1335,16 +1374,34 @@
     
     var _Game_Event_setupPage = Game_Event.prototype.setupPage;
     Game_Event.prototype.setupPage = function() {
+        oldHeight = this.objectHeight();
+        oldRider = this.rider();
+
         _Game_Event_setupPage.apply(this, arguments);
+
 
         var index = this.event().note.indexOf("@MapObject");
         if (index >= 0) {
             this._isMapObject = true;
             this.parseListCommentForAMPSObject();
         }
+        else {
+            this._isMapObject = false;
+        }
+
+        
+        if (this.objectHeight() == 0 && oldRider != null) {
+            console.log("reset", oldHeight, oldRider);
+            oldRider.jump(0, oldHeight);
+        }
     }
 
     Game_Event.prototype.parseListCommentForAMPSObject = function() {
+        // reset object status
+        this._objectTypeName = "";
+        this._gsObjectHeight = 0;
+        this._fallable = false;
+        this._eventTriggerName = "";
 
         var list = this.list();
         if (list && list.length > 1) {
@@ -1380,6 +1437,9 @@
                         case "fallable":
                             this._fallable = (tokens[1].trim() == 'true') ? true : false;
                             break;
+                        case "trigger":
+                            this._eventTriggerName = tokens[1].trim(); 
+                            break;
                     }
                 }
             }
@@ -1408,7 +1468,17 @@
         }
     };
 
+    Game_CharacterBase.prototype.onCharacterRideOn = function() {
+        if (this.eventTriggerName() == "onCharacterRideOn") {
+            this.start();
+        }
+    }
 
+    Game_Event.prototype.onStartedFalling = function() {
+        if (this.eventTriggerName() == "onStartedFalling") {
+            this.start();
+        }
+    }
 
 
 
