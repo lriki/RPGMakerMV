@@ -10,7 +10,7 @@
 //=============================================================================
 
 /*:ja
- * @plugindesc 謎解きマップシステムプラグイン v0.3.0
+ * @plugindesc 謎解きマップシステムプラグイン v0.4.0
  * @author lriki
  * 
  * @param GuideLineTerrainTag
@@ -20,8 +20,6 @@
  *
  * @help マップ上のキャラクター移動やイベントシステムを拡張し、
  * 謎解きの幅を広げるための様々な機能を追加します。
- * 
- * リリースノート：https://github.com/lriki/RPGMakerMV/milestones
  * 
  * MIT License
  */
