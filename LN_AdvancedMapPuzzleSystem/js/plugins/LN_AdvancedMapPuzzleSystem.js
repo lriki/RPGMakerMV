@@ -1489,7 +1489,9 @@
 
     //-----------------------------------------------------------------------------
     // MapSkillManager
-    // 　
+    //  インスタンスは Game_Map のフィールドとして保持され、マップロードと同時にインスタンスも作り直される。
+    //  そのため恒久的な情報は保存できないため注意。(JsonEx.stringify で復元すると __proto__ が失われて関数を呼び出すことができなくなる)
+    //  もし保存したいときは DataManager.extractSaveContents あたりでルートオブジェクトとして保存する細工が必要。
 
     function MapSkillManager() {
         this.initialize.apply(this, arguments);
@@ -1517,12 +1519,12 @@
     var _Game_Map_initialize = Game_Map.prototype.initialize;
     Game_Map.prototype.initialize = function() {
         _Game_Map_initialize.apply(this, arguments);
-        this._mapSkillManager = new MapSkillManager();
     };
 
     var _Game_Map_setup = Game_Map.prototype.setup;
     Game_Map.prototype.setup = function(mapId) {
         _Game_Map_setup.apply(this, arguments);
+        this._mapSkillManager = new MapSkillManager();
         this._mapSkillManager.reset();
     };
     
