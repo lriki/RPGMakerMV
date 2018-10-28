@@ -8,6 +8,7 @@
 ダウンロード： [LN_AdvancedMapPuzzleSystem.js](https://raw.githubusercontent.com/lriki/RPGMakerMV/master/LN_AdvancedMapPuzzleSystem/js/plugins/LN_AdvancedMapPuzzleSystem.js)
 
 **開発状況について**
+
 このプラグインは以前に @lriki がRPGツクールXP用に開発したプラグインのリメイクです。
 
 そちらで実装されていた全ての機能の達成を以って、バージョン 1.0.0 とする予定です。
@@ -15,6 +16,7 @@
 未実装の機能は ![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat) でマークされています。
 
 **不具合情報について**
+
 既知の問題や修正済みの問題については次のリンク先をご確認ください。
 
 - [不具合情報](https://github.com/lriki/RPGMakerMV/issues?utf8=%E2%9C%93&q=label%3Abug+)
