@@ -414,7 +414,6 @@
     }
     
     MovingHelper.findObjectByObjectId = function(objectId) {
-
         var events = $gameMap.events();
         for(var i = 0; i < events.length; i++) {
             if(events[i].gsObjectId() == objectId) {
@@ -429,8 +428,7 @@
         if (id == 0) {
             return $gamePlayer;
         }
-        var events = $gameMap.events();
-        return events[id - 1];
+        return $gameMap.event(id);
     }
 
     MovingHelper.findObject = function(x, y, ridding) {
