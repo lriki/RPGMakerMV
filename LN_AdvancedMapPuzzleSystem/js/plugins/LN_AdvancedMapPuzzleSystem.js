@@ -687,22 +687,21 @@
                 }
             }
         }
-
-
-
         return false;
     }
 
     Game_CharacterBase.prototype.tryMoveObjectToObject = function(d) {
-        var obj = MovingHelper.checkMoveOrJumpObjectToObject(this._x, this._y, d, 1);
-        if (obj != null && obj != this) {
-            this.setMovementSuccess(true);
-            this.startMoveToObjectOrGround(false, d);
-            this.moveToDir(d, false);
-            this.getOffFromObject();
-            this.rideToObject(obj);
-            this._nowGetOnOrOff = 1;
-            return true;
+        if (this.ridding()) {
+            var obj = MovingHelper.checkMoveOrJumpObjectToObject(this._x, this._y, d, 1);
+            if (obj != null && obj != this) {
+                this.setMovementSuccess(true);
+                this.startMoveToObjectOrGround(false, d);
+                this.moveToDir(d, false);
+                this.getOffFromObject();
+                this.rideToObject(obj);
+                this._nowGetOnOrOff = 1;
+                return true;
+            }
         }
         return false;
     }

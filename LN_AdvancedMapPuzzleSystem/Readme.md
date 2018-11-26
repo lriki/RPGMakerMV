@@ -15,6 +15,13 @@
 
 未実装の機能は ![ToDo](http://img.shields.io/badge/status-ToDo-red.svg?style=flat) でマークされています。
 
+**不具合情報について**
+
+既知の問題や修正済みの問題については次のリンク先をご確認ください。
+
+- [不具合情報](https://github.com/lriki/RPGMakerMV/issues?utf8=%E2%9C%93&q=label%3Abug+)
+
+
 
 目次
 --------------------
